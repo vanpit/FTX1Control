@@ -1,0 +1,43 @@
+# .NET and Avalonia build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+publish/
+.avalonia-build-tasks/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Local IDE state
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
+*.local.json
+secrets.json
+*.pfx
+*.p12
+*.pem
+*.key
+*.snk
+
+# Temporary and local data
+*.log
+*.tmp
+*.bak
+*.swp
+*.db
+*.sqlite
+*.sqlite3
+Thumbs.db
+Desktop.ini
