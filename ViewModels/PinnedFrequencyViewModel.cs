@@ -9,6 +9,9 @@ public sealed partial class PinnedFrequencyViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    [ObservableProperty]
+    private string _callSign = string.Empty;
+
     public int FrequencyHz { get; }
     public char ModeCode { get; }
     public string ModeDisplay { get; }
@@ -17,11 +20,18 @@ public sealed partial class PinnedFrequencyViewModel : ObservableObject
     public IRelayCommand SelectCommand { get; }
     public IRelayCommand RemoveCommand { get; }
 
-    public PinnedFrequencyViewModel(int frequencyHz, char modeCode, string modeDisplay, Action select, Action<PinnedFrequencyViewModel> remove)
+    public PinnedFrequencyViewModel(
+        int frequencyHz,
+        char modeCode,
+        string modeDisplay,
+        Action select,
+        Action<PinnedFrequencyViewModel> remove,
+        string callSign = "")
     {
         FrequencyHz = frequencyHz;
         ModeCode = modeCode;
         ModeDisplay = modeDisplay;
+        CallSign = callSign;
         var kilohertz = (frequencyHz + 500) / 1000;
         Label = $"{kilohertz / 1000}.{kilohertz % 1000:000}";
         SelectCommand = new RelayCommand(select);

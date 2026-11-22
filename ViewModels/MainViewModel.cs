@@ -1447,12 +1447,13 @@ public partial class MainViewModel : ViewModelBase
         }
 
         var existing = frequencies.FirstOrDefault(item => item.FrequencyHz == frequency);
+        var callSign = existing?.CallSign ?? string.Empty;
         if (existing is not null)
         {
             frequencies.Remove(existing);
         }
 
-        frequencies.Insert(0, CreatePinnedFrequency(vfo, frequency, mode, modeDisplay, frequencies));
+        frequencies.Insert(0, CreatePinnedFrequency(vfo, frequency, mode, modeDisplay, frequencies, callSign));
         if (frequencies.Count > MaximumPinnedFrequencies)
         {
             frequencies.RemoveAt(frequencies.Count - 1);
@@ -1466,13 +1467,15 @@ public partial class MainViewModel : ViewModelBase
         int frequencyHz,
         char modeCode,
         string modeDisplay,
-        ObservableCollection<PinnedFrequencyViewModel> frequencies) =>
+        ObservableCollection<PinnedFrequencyViewModel> frequencies,
+        string callSign = "") =>
         new(
             frequencyHz,
             modeCode,
             modeDisplay,
             () => SelectPinnedFrequency(vfo, frequencyHz, modeCode),
-            item => frequencies.Remove(item));
+            item => frequencies.Remove(item),
+            callSign);
 
     private void SwapPinnedFrequencyCollections()
     {
@@ -1484,13 +1487,13 @@ public partial class MainViewModel : ViewModelBase
         foreach (var frequency in subFrequencies)
         {
             MainPinnedFrequencies.Add(CreatePinnedFrequency(
-                0, frequency.FrequencyHz, frequency.ModeCode, frequency.ModeDisplay, MainPinnedFrequencies));
+                0, frequency.FrequencyHz, frequency.ModeCode, frequency.ModeDisplay, MainPinnedFrequencies, frequency.CallSign));
         }
 
         foreach (var frequency in mainFrequencies)
         {
             SubPinnedFrequencies.Add(CreatePinnedFrequency(
-                1, frequency.FrequencyHz, frequency.ModeCode, frequency.ModeDisplay, SubPinnedFrequencies));
+                1, frequency.FrequencyHz, frequency.ModeCode, frequency.ModeDisplay, SubPinnedFrequencies, frequency.CallSign));
         }
     }
 

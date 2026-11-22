@@ -4,11 +4,11 @@
         xmlns:models="using:FTX1Control.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1201.2" d:DesignHeight="1261.615773078"
+        mc:Ignorable="d" d:DesignWidth="1201.2" d:DesignHeight="1287.615773078"
         x:Class="FTX1Control.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Topmost="{Binding IsAlwaysOnTop}"
-        Width="1201.2" Height="1261.615773078" MinWidth="1000" MinHeight="1000" WindowStartupLocation="Manual"
+        Width="1201.2" Height="1287.615773078" MinWidth="1000" MinHeight="1000" WindowStartupLocation="Manual"
         Background="#080D0E"
         Icon="/Assets/ftx1-radio.ico"
         Title="FTX-1 | CAT Control">
@@ -113,7 +113,7 @@
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="MinWidth" Value="70" />
-            <Setter Property="Height" Value="44" />
+            <Setter Property="Height" Value="70" />
             <Setter Property="Padding" Value="2,2" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -128,6 +128,12 @@
         <Style Selector="Button.pinned-frequency.pin /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.pinned-frequency-callsign">
+            <Setter Property="Background" Value="#151D1E" />
+            <Setter Property="Foreground" Value="#F0F4F2" />
+            <Setter Property="BorderBrush" Value="#3B4948" />
+            <Setter Property="BorderThickness" Value="1" />
         </Style>
         <Style Selector="Button.pinned-frequency.selected, Button.detector.rf-power-selected">
             <Setter Property="Background" Value="#328ACB" />
@@ -389,6 +395,11 @@
                                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Label}" TextAlignment="Center" HorizontalAlignment="Center" />
                                                     <TextBlock Text="{Binding ModeDisplay}" FontSize="11" TextAlignment="Center" HorizontalAlignment="Center" />
+                                                    <TextBox Classes="pinned-frequency-callsign" Text="{Binding CallSign, Mode=TwoWay}"
+                                                             PlaceholderText="Znak" FontFamily="Consolas" FontSize="12" TextAlignment="Center"
+                                                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                             Width="56" Height="20" Padding="1,0"
+                                                             TextChanged="OnPinnedCallSignTextChanged" />
                                                 </StackPanel>
                                             </Button>
                                         </DataTemplate>
@@ -455,6 +466,11 @@
                                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Label}" TextAlignment="Center" HorizontalAlignment="Center" />
                                                     <TextBlock Text="{Binding ModeDisplay}" FontSize="11" TextAlignment="Center" HorizontalAlignment="Center" />
+                                                    <TextBox Classes="pinned-frequency-callsign" Text="{Binding CallSign, Mode=TwoWay}"
+                                                             PlaceholderText="Znak" FontFamily="Consolas" FontSize="12" TextAlignment="Center"
+                                                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                             Width="56" Height="20" Padding="1,0"
+                                                             TextChanged="OnPinnedCallSignTextChanged" />
                                                 </StackPanel>
                                             </Button>
                                         </DataTemplate>

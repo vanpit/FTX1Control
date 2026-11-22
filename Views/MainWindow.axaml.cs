@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using FTX1Control.ViewModels;
 
 namespace FTX1Control.Views;
@@ -173,11 +174,32 @@ public partial class MainWindow : Window
     private void OnPinnedFrequencyPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is Button { DataContext: PinnedFrequencyViewModel frequency } button
+            && !(e.Source is Control source
+                && (source is TextBox || source.FindAncestorOfType<TextBox>() is not null))
             && e.GetCurrentPoint(button).Properties.PointerUpdateKind == PointerUpdateKind.RightButtonPressed)
         {
             e.Handled = true;
             frequency.RemoveCommand.Execute(null);
         }
+    }
+
+    private void OnPinnedCallSignTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        var text = textBox.Text ?? string.Empty;
+        var upperText = text.ToUpperInvariant();
+        if (text == upperText)
+        {
+            return;
+        }
+
+        var caretIndex = textBox.CaretIndex;
+        textBox.Text = upperText;
+        textBox.CaretIndex = Math.Min(caretIndex, upperText.Length);
     }
 
     private void OnMainVolumeWheelChanged(object? sender, PointerWheelEventArgs e) =>
