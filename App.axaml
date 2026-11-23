@@ -5,6 +5,37 @@
              RequestedThemeVariant="Default">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
+    <Application.Resources>
+        <ResourceDictionary>
+            <x:String x:Key="WindowTitle">FTX-1 | Sterowanie CAT</x:String>
+            <x:String x:Key="HeaderEyebrow">FTX-1  /  STEROWANIE CAT</x:String>
+            <x:String x:Key="HeaderTitle">Yaesu FTX-1 Panel Sterowania</x:String>
+            <x:String x:Key="AlwaysOnTop">Zawsze na wierzchu</x:String>
+            <x:String x:Key="SerialPortLabel">PORT SZEREGOWY</x:String>
+            <x:String x:Key="BaudRateLabel">PRĘDKOŚĆ ŁĄCZA</x:String>
+            <x:String x:Key="SMeterTitle">S-METR MAIN VFO (ODBIÓR)</x:String>
+            <x:String x:Key="IncreaseDLevelTip">Zwiększ D-LEVEL o 0,5 dB</x:String>
+            <x:String x:Key="DecreaseDLevelTip">Zmniejsz D-LEVEL o 0,5 dB</x:String>
+            <x:String x:Key="IncreaseNbTip">Zwiększ poziom NB</x:String>
+            <x:String x:Key="DecreaseNbTip">Zmniejsz poziom NB</x:String>
+            <x:String x:Key="IncreaseDnrTip">Zwiększ poziom DNR</x:String>
+            <x:String x:Key="DecreaseDnrTip">Zmniejsz poziom DNR</x:String>
+            <x:String x:Key="TransmitPowerTitle">MOC NADAWANIA</x:String>
+            <x:String x:Key="TransmitMetersTitle">MIERNIKI NADAWANIA</x:String>
+            <x:String x:Key="ActiveDuringTx">Aktywne podczas TX</x:String>
+            <x:String x:Key="PowerOutputEstimate">PO - MOC WYJŚCIOWA (SZAC.)</x:String>
+            <x:String x:Key="SwrEstimate">SWR (SZAC.)</x:String>
+            <x:String x:Key="MeterSelection">WYBÓR MIERNIKA</x:String>
+            <x:String x:Key="PinnedFrequencies">PRZYPIĘTE CZĘSTOTLIWOŚCI</x:String>
+            <x:String x:Key="PinFrequency">Przypnij&#x0a;częst.</x:String>
+            <x:String x:Key="CallSignPlaceholder">Znak</x:String>
+            <x:String x:Key="MuteMainVolumeTip">Wycisz lub przywróć głośność MAIN VFO</x:String>
+            <x:String x:Key="MuteSubVolumeTip">Wycisz lub przywróć głośność SUB VFO</x:String>
+            <x:String x:Key="CatStatus">STATUS CAT</x:String>
+            <x:String x:Key="CatFrames">RAMKI CAT  [TX] wysłane  |  [RX] odebrane</x:String>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.DataTemplates>
         <local:ViewLocator />
     </Application.DataTemplates>

@@ -12,6 +12,7 @@ using System.Threading;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
+using FTX1Control.Services;
 using System.IO;
 using System.Globalization;
 
@@ -99,19 +100,17 @@ public partial class MainViewModel : ViewModelBase
     private bool _isAlwaysOnTop = true;
 
     [ObservableProperty]
+    private int _selectedLanguageIndex;
+
+    [ObservableProperty]
     private bool _isConnecting;
 
-    [ObservableProperty]
     private string _connectionStatus = "NIEPOŁĄCZONY";
-
-    [ObservableProperty]
     private string _statusMessage = "Wybierz port COM i połącz się z radiem FTX-1.";
+    private string _catLogFileError = string.Empty;
 
     [ObservableProperty]
     private string _catLog = string.Empty;
-
-    [ObservableProperty]
-    private string _catLogFileError = string.Empty;
 
     [ObservableProperty]
     private bool _isCatLogAutoScroll = true;
@@ -221,11 +220,62 @@ public partial class MainViewModel : ViewModelBase
 
     public event Action? CatLogOldestLineRemoved;
 
-    public string ConnectButtonText => IsConnecting ? "Łączenie..." : IsConnected ? "Rozłącz" : "Połącz";
+    public string ConnectionStatus
+    {
+        get => LanguageService.TranslateStatus(_connectionStatus);
+        set
+        {
+            if (_connectionStatus == value)
+            {
+                return;
+            }
+
+            _connectionStatus = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string StatusMessage
+    {
+        get => LanguageService.TranslateStatus(_statusMessage);
+        set
+        {
+            if (_statusMessage == value)
+            {
+                return;
+            }
+
+            _statusMessage = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string CatLogFileError
+    {
+        get => LanguageService.TranslateStatus(_catLogFileError);
+        set
+        {
+            if (_catLogFileError == value)
+            {
+                return;
+            }
+
+            _catLogFileError = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasCatLogFileError));
+        }
+    }
+
+    public string ConnectButtonText => IsConnecting
+        ? LanguageService.TranslateStatus("Łączenie...")
+        : IsConnected
+            ? LanguageService.TranslateStatus("Rozłącz")
+            : LanguageService.TranslateStatus("Połącz");
     public bool CanSelectComPort => !IsConnected && !IsConnecting;
     public bool CanSelectBaudRate => !IsConnected && !IsConnecting;
-    public string CatLogAutoScrollButtonText => IsCatLogAutoScroll ? "AUTO-PRZEWIJANIE: WŁ." : "AUTO-PRZEWIJANIE: WYŁ.";
-    public bool HasCatLogFileError => !string.IsNullOrEmpty(CatLogFileError);
+    public string CatLogAutoScrollButtonText => LanguageService.TranslateStatus(
+        IsCatLogAutoScroll ? "AUTO-PRZEWIJANIE: WŁ." : "AUTO-PRZEWIJANIE: WYŁ.");
+    public bool HasCatLogFileError => !string.IsNullOrEmpty(_catLogFileError);
     public bool IsAverageMeterDetector => IsPeakMeterDetector == false;
     public bool IsPeakMeterDetectorSelected => IsPeakMeterDetector == true;
     public bool CanSelectMeterDetector => IsConnected && !IsMeterDetectorUpdating;
@@ -270,7 +320,8 @@ public partial class MainViewModel : ViewModelBase
     public IBrush ConnectionIndicatorBrush => IsConnected
         ? new SolidColorBrush(Color.FromRgb(182, 214, 108))
         : new SolidColorBrush(Color.FromRgb(103, 117, 114));
-    public string TransmitStatusText => IsTransmitting ? "TX - NADAWANIE" : "RX - ODBIÓR";
+    public string TransmitStatusText => LanguageService.TranslateStatus(
+        IsTransmitting ? "TX - NADAWANIE" : "RX - ODBIÓR");
     public IBrush TransmitStatusBrush => IsTransmitting
         ? TransmitIndicatorRedBrush
         : new SolidColorBrush(Color.FromRgb(40, 106, 154));
@@ -287,17 +338,31 @@ public partial class MainViewModel : ViewModelBase
 
     public MainViewModel()
     {
+        _selectedLanguageIndex = LanguageService.LoadPreferredLanguageIndex();
+        LanguageService.SetLanguage(_selectedLanguageIndex, savePreference: false);
         InitializeCatLogFile();
         MainMeters = CreateMeterOptions(0);
         SubMeters = CreateMeterOptions(1);
         RefreshComPorts();
     }
 
+    partial void OnSelectedLanguageIndexChanged(int value)
+    {
+        LanguageService.SetLanguage(value, savePreference: true);
+        OnPropertyChanged(nameof(ConnectionStatus));
+        OnPropertyChanged(nameof(StatusMessage));
+        OnPropertyChanged(nameof(CatLogFileError));
+        OnPropertyChanged(nameof(ConnectButtonText));
+        OnPropertyChanged(nameof(CatLogAutoScrollButtonText));
+        OnPropertyChanged(nameof(TransmitStatusText));
+        foreach (var frequency in MainPinnedFrequencies.Concat(SubPinnedFrequencies))
+        {
+            frequency.NotifyLanguageChanged();
+        }
+    }
+
     partial void OnIsCatLogAutoScrollChanged(bool value) =>
         OnPropertyChanged(nameof(CatLogAutoScrollButtonText));
-
-    partial void OnCatLogFileErrorChanged(string value) =>
-        OnPropertyChanged(nameof(HasCatLogFileError));
 
     private void InitializeCatLogFile()
     {
@@ -593,11 +658,11 @@ public partial class MainViewModel : ViewModelBase
                         : $"Połączono, ale nie udało się odczytać AVG/PEAK: {connectionReadings.meterDetectorError}";
                     if (connectionReadings.rfPowerError is not null)
                     {
-                        StatusMessage += $" Nie udało się odczytać mocy SPA-1: {connectionReadings.rfPowerError}";
+                        StatusMessage = $"{_statusMessage} Nie udało się odczytać mocy SPA-1: {connectionReadings.rfPowerError}";
                     }
                     else if (connectionReadings.rfPowerSettings?.Warning is string powerWarning)
                     {
-                        StatusMessage += $" Nie udało się odczytać niektórych limitów mocy: {powerWarning}";
+                        StatusMessage = $"{_statusMessage} Nie udało się odczytać niektórych limitów mocy: {powerWarning}";
                     }
                     StartTransmitMeterPolling();
                     RequestDLevelForCurrentFrequency();
@@ -935,53 +1000,53 @@ public partial class MainViewModel : ViewModelBase
         var message = frame.Substring(receivePrefix.Length).TrimEnd(';');
         if (message.Equals("TX", StringComparison.OrdinalIgnoreCase))
         {
-            return $"{frame} — zdarzenie rozpoczęcia nadawania";
+            return $"{frame} — {Localize("zdarzenie rozpoczęcia nadawania", "transmit start event")}";
         }
 
         if (message.Equals("RX", StringComparison.OrdinalIgnoreCase))
         {
-            return $"{frame} — zdarzenie powrotu do odbioru";
+            return $"{frame} — {Localize("zdarzenie powrotu do odbioru", "return to receive event")}";
         }
 
         if (message.StartsWith("RI", StringComparison.OrdinalIgnoreCase)
             && message.Length == 10 && message[5] is '0' or '1' or '2')
         {
-            return $"{frame} — status radia, TX: {(message[5] == '1' ? "aktywne" : "nieaktywne")}";
+            return $"{frame} — {Localize("status radia, TX", "radio status, TX")}: {(message[5] == '1' ? Localize("aktywne", "active") : Localize("nieaktywne", "inactive"))}";
         }
 
         if (TryParseTransmitVfo(message, out var transmitVfo))
         {
-            return $"{frame} — VFO nadawcze: {(transmitVfo == 0 ? "MAIN" : "SUB")}";
+            return $"{frame} — {Localize("VFO nadawcze", "transmit VFO")}: {(transmitVfo == 0 ? "MAIN" : "SUB")}";
         }
 
         if (TryParseVfoMode(message, out var modeVfo, out var modeDisplay))
         {
-            return $"{frame} — tryb {(modeVfo == 0 ? "MAIN" : "SUB")}: {modeDisplay}";
+            return $"{frame} — {Localize("tryb", "mode")} {(modeVfo == 0 ? "MAIN" : "SUB")}: {modeDisplay}";
         }
 
         if (TryParseVfoAudioGain(message, out var audioGainVfo, out var audioGain))
         {
-            return $"{frame} — głośność {(audioGainVfo == 0 ? "MAIN" : "SUB")}: {FormatAudioGainDisplay(audioGain)} (CAT: {audioGain}/255)";
+            return $"{frame} — {Localize("głośność", "volume")} {(audioGainVfo == 0 ? "MAIN" : "SUB")}: {FormatAudioGainDisplay(audioGain)} (CAT: {audioGain}/255)";
         }
 
         if (TryParseVfoInformation(message, out var informationVfo, out var informationFrequency, out var informationMode))
         {
-            return $"{frame} — stan VFO {(informationVfo == 0 ? "MAIN" : "SUB")}: {FormatFrequency(informationFrequency)}, {GetModeDisplay(informationMode)}";
+            return $"{frame} — {Localize("stan VFO", "VFO state")} {(informationVfo == 0 ? "MAIN" : "SUB")}: {FormatFrequency(informationFrequency)}, {GetModeDisplay(informationMode)}";
         }
 
         if (CatSerialConnection.TryParseMeterDetector(message, out var isPeak))
         {
-            return $"{frame} — detektor miernika: {(isPeak ? "PEAK" : "AVG")}";
+            return $"{frame} — {Localize("detektor miernika", "meter detector")}: {(isPeak ? "PEAK" : "AVG")}";
         }
 
         if (CatSerialConnection.TryParseRfPower(message, out var rfPower))
         {
-            return $"{frame} — ustawiona moc RF: {rfPower} W";
+            return $"{frame} — {Localize("ustawiona moc RF", "RF power set to")}: {rfPower} W";
         }
 
         if (CatSerialConnection.TryParseRfPowerLimit(message, out var powerLimitItem, out var maximumRfPower))
         {
-            return $"{frame} — limit mocy RF, pozycja CAT {powerLimitItem}: {maximumRfPower} W";
+            return $"{frame} — {Localize("limit mocy RF, pozycja CAT", "RF power limit, CAT item")} {powerLimitItem}: {maximumRfPower} W";
         }
 
         if (CatSerialConnection.TryParseDLevel(message, out var dLevel))
@@ -991,12 +1056,12 @@ public partial class MainViewModel : ViewModelBase
 
         if (CatSerialConnection.TryParseNoiseControlLevel(message, "NL", out var noiseBlankerLevel))
         {
-            return $"{frame} — poziom NB: {noiseBlankerLevel}";
+            return $"{frame} — {Localize("poziom NB", "NB level")}: {noiseBlankerLevel}";
         }
 
         if (CatSerialConnection.TryParseNoiseControlLevel(message, "RL", out var digitalNoiseReductionLevel))
         {
-            return $"{frame} — poziom DNR: {digitalNoiseReductionLevel}";
+            return $"{frame} — {Localize("poziom DNR", "DNR level")}: {digitalNoiseReductionLevel}";
         }
 
         if ((message.StartsWith("FA", StringComparison.OrdinalIgnoreCase)
@@ -1005,7 +1070,7 @@ public partial class MainViewModel : ViewModelBase
             && int.TryParse(message.AsSpan(2, 9), out var frequency))
         {
             var vfo = message.StartsWith("FA", StringComparison.OrdinalIgnoreCase) ? "MAIN" : "SUB";
-            return $"{frame} — częstotliwość VFO {vfo}: {FormatFrequency(frequency)}";
+            return $"{frame} — {Localize("częstotliwość VFO", "VFO frequency")} {vfo}: {FormatFrequency(frequency)}";
         }
 
         if (message.StartsWith("RM", StringComparison.OrdinalIgnoreCase)
@@ -1016,11 +1081,11 @@ public partial class MainViewModel : ViewModelBase
         {
             return meterCode switch
             {
-                4 => $"{frame} — ALC: {ConvertAlcReading(value)}% (wartość CAT: {value}, dodatkowa: {additionalValue})",
-                5 => $"{frame} — moc PO: {Math.Round(ConvertPowerReading(value), MidpointRounding.AwayFromZero):0} W (wartość CAT: {value}, dodatkowa: {additionalValue})",
-                6 => $"{frame} — SWR: {ConvertSwrReading(value):0.0}:1 (wartość CAT: {value}, dodatkowa: {additionalValue})",
-                1 => $"{frame} — S-metr: P2={value} ({FormatSMeterValue(value)}; dodatkowa: {additionalValue})",
-                _ => $"{frame} — odczyt miernika CAT, kod: {meterCode}, wartość: {value}, dodatkowa: {additionalValue}"
+                4 => $"{frame} — ALC: {ConvertAlcReading(value)}% {Localize($"(wartość CAT: {value}, dodatkowa: {additionalValue})", $"(CAT value: {value}, additional: {additionalValue})")}",
+                5 => $"{frame} — {Localize("moc PO", "PO power")}: {Math.Round(ConvertPowerReading(value), MidpointRounding.AwayFromZero):0} W {Localize($"(wartość CAT: {value}, dodatkowa: {additionalValue})", $"(CAT value: {value}, additional: {additionalValue})")}",
+                6 => $"{frame} — SWR: {ConvertSwrReading(value):0.0}:1 {Localize($"(wartość CAT: {value}, dodatkowa: {additionalValue})", $"(CAT value: {value}, additional: {additionalValue})")}",
+                1 => $"{frame} — {Localize($"S-metr: P2={value} ({FormatSMeterValue(value)}; dodatkowa: {additionalValue})", $"S-meter: P2={value} ({FormatSMeterValue(value)}; additional: {additionalValue})")}",
+                _ => $"{frame} — {Localize($"odczyt miernika CAT, kod: {meterCode}, wartość: {value}, dodatkowa: {additionalValue}", $"CAT meter reading, code: {meterCode}, value: {value}, additional: {additionalValue}")}"
             };
         }
 
@@ -1030,10 +1095,10 @@ public partial class MainViewModel : ViewModelBase
             && int.TryParse(message.AsSpan(3, 1), out var subMeter)
             && mainMeter is >= 0 and <= 5 && subMeter is >= 0 and <= 5)
         {
-            return $"{frame} — wybrane mierniki: MAIN {MeterOptionViewModel.GetLabel(mainMeter)}, SUB {MeterOptionViewModel.GetLabel(subMeter)}";
+            return $"{frame} — {Localize("wybrane mierniki", "selected meters")}: MAIN {MeterOptionViewModel.GetLabel(mainMeter)}, SUB {MeterOptionViewModel.GetLabel(subMeter)}";
         }
 
-        return $"{frame} — nierozpoznana ramka CAT";
+        return $"{frame} — {Localize("nierozpoznana ramka CAT", "unrecognized CAT frame")}";
     }
 
     private void ApplyAutoInformation(string message)
@@ -2136,6 +2201,9 @@ public partial class MainViewModel : ViewModelBase
             'I' => "C4FM-VW",
             _ => null
         };
+
+    private static string Localize(string polish, string english) =>
+        LanguageService.IsEnglish ? english : polish;
 
     private static IBrush GetVfoStateBrush(bool isTransmitVfo) =>
         new SolidColorBrush(isTransmitVfo
