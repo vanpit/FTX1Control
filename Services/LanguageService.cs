@@ -20,6 +20,7 @@ public static class LanguageService
         ("HeaderEyebrow", "FTX-1  /  STEROWANIE CAT", "FTX-1  /  CAT CONTROL"),
         ("HeaderTitle", "Yaesu FTX-1 Panel Sterowania", "Yaesu FTX-1 Control Panel"),
         ("AlwaysOnTop", "Zawsze na wierzchu", "Always on top"),
+        ("ConnectionTitle", "POŁĄCZENIE", "CONNECTION"),
         ("SerialPortLabel", "PORT SZEREGOWY", "SERIAL PORT"),
         ("BaudRateLabel", "PRĘDKOŚĆ ŁĄCZA", "BAUD RATE"),
         ("SMeterTitle", "S-METR", "S-METER"),

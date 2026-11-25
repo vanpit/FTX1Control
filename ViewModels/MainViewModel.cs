@@ -965,10 +965,6 @@ public partial class MainViewModel : ViewModelBase
                 {
                     await Task.Run(_cat.RequestTransmitMeterReadings, cancellationToken);
                 }
-                else
-                {
-                    await Task.Run(_cat.RequestSubSMeterReading, cancellationToken);
-                }
 
                 await Task.Delay(500, cancellationToken);
             }

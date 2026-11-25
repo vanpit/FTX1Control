@@ -440,16 +440,6 @@ public sealed class CatSerialConnection : IDisposable
         }
     }
 
-    public void RequestSubSMeterReading()
-    {
-        lock (_sync)
-        {
-            var serialPort = GetOpenPort();
-            LogFrame("TX", "RM2;");
-            serialPort.Write("RM2;");
-        }
-    }
-
     public void RequestTransmitMeterReadings()
     {
         lock (_sync)

@@ -207,16 +207,34 @@
         </Style>
     </Window.Styles>
 
+    <Grid RowDefinitions="*,Auto">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="22.5,24" RowSpacing="18">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" VerticalAlignment="Center" Margin="0,0,0,6">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" VerticalAlignment="Center" Margin="0,0,0,6">
             <TextBlock Text="{DynamicResource HeaderEyebrow}" FontSize="12" FontWeight="Bold" Foreground="#B6D66C" />
             <TextBlock Grid.Row="1" Text="{DynamicResource HeaderTitle}" FontSize="30" FontWeight="Bold" VerticalAlignment="Center" />
-            <TextBlock Grid.Row="2" Text="{Binding BuildInfo}" FontSize="10" Foreground="#98A8A2" />
             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <ComboBox Width="140" Height="44" SelectedIndex="{Binding SelectedLanguageIndex, Mode=TwoWay}" VerticalAlignment="Center">
-                    <ComboBoxItem Content="Polski" />
-                    <ComboBoxItem Content="English" />
+                    <ComboBoxItem AutomationProperties.Name="Polski">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Grid Width="24" Height="14" RowDefinitions="*,*" VerticalAlignment="Center">
+                                <Border Background="#FFFFFF" />
+                                <Border Grid.Row="1" Background="#DC143C" />
+                            </Grid>
+                            <TextBlock Text="Polski" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ComboBoxItem>
+                    <ComboBoxItem AutomationProperties.Name="English">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Grid Width="24" Height="14" Background="#012169" ClipToBounds="True" VerticalAlignment="Center">
+                                <Path Data="M0,0 L24,14 M24,0 L0,14" Stroke="#FFFFFF" StrokeThickness="3" />
+                                <Path Data="M0,0 L24,14 M24,0 L0,14" Stroke="#C8102E" StrokeThickness="1" />
+                                <Path Data="M12,0 L12,14 M0,7 L24,7" Stroke="#FFFFFF" StrokeThickness="4" />
+                                <Path Data="M12,0 L12,14 M0,7 L24,7" Stroke="#C8102E" StrokeThickness="2" />
+                            </Grid>
+                            <TextBlock Text="English" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ComboBoxItem>
                 </ComboBox>
                 <ToggleButton Classes="always-on-top"
                               Content="{DynamicResource AlwaysOnTop}"
@@ -233,23 +251,28 @@
         </Grid>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="13.5">
-            <Border Background="#151D20" BorderBrush="#D59A42" BorderThickness="4,1,1,1" CornerRadius="5" Padding="18">
-                <Grid ColumnDefinitions="*,150,Auto" ColumnSpacing="12" VerticalAlignment="Center">
-                    <StackPanel Spacing="6" HorizontalAlignment="Stretch">
-                        <TextBlock Text="{DynamicResource SerialPortLabel}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" />
-                        <ComboBox ItemsSource="{Binding AvailableComPorts}" SelectedItem="{Binding SelectedComPort}" IsEnabled="{Binding CanSelectComPort}" DropDownOpened="OnComPortDropDownOpened" HorizontalAlignment="Stretch">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="models:ComPortOption">
-                                    <TextBlock Text="{Binding DisplayName}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="6" HorizontalAlignment="Stretch">
-                        <TextBlock Text="{DynamicResource BaudRateLabel}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" />
-                        <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" IsEnabled="{Binding CanSelectBaudRate}" HorizontalAlignment="Stretch" />
-                    </StackPanel>
-                    <Button Grid.Column="2" Classes="connect" Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" VerticalAlignment="Bottom" />
+            <Border Background="#151D20" BorderBrush="#D59A42" BorderThickness="4,1,1,1" CornerRadius="5" Padding="14,11">
+                <Grid RowDefinitions="Auto,*" RowSpacing="8">
+                    <Grid MinHeight="32">
+                        <TextBlock Text="{DynamicResource ConnectionTitle}" FontSize="10" FontWeight="Bold" Foreground="#D59A42" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="*,150,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+                        <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+                            <TextBlock Text="{DynamicResource SerialPortLabel}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" />
+                            <ComboBox ItemsSource="{Binding AvailableComPorts}" SelectedItem="{Binding SelectedComPort}" IsEnabled="{Binding CanSelectComPort}" DropDownOpened="OnComPortDropDownOpened" HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:ComPortOption">
+                                        <TextBlock Text="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6" HorizontalAlignment="Stretch">
+                            <TextBlock Text="{DynamicResource BaudRateLabel}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" />
+                            <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" IsEnabled="{Binding CanSelectBaudRate}" HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                        <Button Grid.Column="2" Classes="connect" Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" VerticalAlignment="Bottom" />
+                    </Grid>
                 </Grid>
             </Border>
             <Border Grid.Column="1" Background="#151D20" BorderBrush="#D59A42" BorderThickness="4,1,1,1" CornerRadius="5" Padding="14,11">
@@ -558,5 +581,9 @@
 
     </Grid>
     </ScrollViewer>
+    <Border Grid.Row="1" Background="#151D20" BorderBrush="#303B3C" BorderThickness="0,1,0,0" Padding="22.5,8">
+        <TextBlock Text="{Binding BuildInfo}" FontSize="10" Foreground="#98A8A2" />
+    </Border>
+    </Grid>
 
 </Window>
