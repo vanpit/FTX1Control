@@ -30,6 +30,7 @@ public static class LanguageService
         ("IncreaseDnrTip", "Zwiększ poziom DNR", "Increase DNR level"),
         ("DecreaseDnrTip", "Zmniejsz poziom DNR", "Decrease DNR level"),
         ("TransmitPowerTitle", "MOC NADAWANIA", "TRANSMIT POWER"),
+        ("SettingsTitle", "USTAWIENIA", "SETTINGS"),
         ("TransmitMetersTitle", "MIERNIKI NADAWANIA", "TRANSMIT METERS"),
         ("ActiveDuringTx", "Aktywne podczas TX", "Active during TX"),
         ("PowerOutputEstimate", "PO - MOC WYJŚCIOWA (SZAC.)", "PO - OUTPUT POWER (EST.)"),
@@ -40,8 +41,7 @@ public static class LanguageService
         ("CallSignPlaceholder", "Znak", "Callsign"),
         ("MuteMainVolumeTip", "Wycisz lub przywróć głośność MAIN VFO", "Mute or restore MAIN VFO volume"),
         ("MuteSubVolumeTip", "Wycisz lub przywróć głośność SUB VFO", "Mute or restore SUB VFO volume"),
-        ("CatStatus", "STATUS CAT", "CAT STATUS"),
-        ("CatFrames", "RAMKI CAT  [TX] wysłane  |  [RX] odebrane", "CAT FRAMES  [TX] sent  |  [RX] received")
+        ("CatStatus", "STATUS CAT", "CAT STATUS")
     };
 
     private static readonly (string Polish, string English)[] StatusTranslations =
@@ -70,6 +70,8 @@ public static class LanguageService
         ("Ponawianie połączenia (", "Retrying connection ("),
         ("Połączono z ", "Connected to "),
         ("Połączono, ale nie udało się odczytać AVG/PEAK: ", "Connected, but failed to read AVG/PEAK: "),
+        ("Nie udało się odczytać AVG/PEAK: ", "Failed to read AVG/PEAK: "),
+        ("Nie udało się odczytać funkcji pokrętła FUNC: ", "Failed to read FUNC knob function: "),
         ("Nie udało się odczytać mocy SPA-1: ", "Failed to read SPA-1 power: "),
         ("Nie udało się odczytać niektórych limitów mocy: ", "Some power limits could not be read: "),
         ("Nie udało się połączyć: ", "Failed to connect: "),

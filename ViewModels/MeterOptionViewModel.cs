@@ -31,5 +31,7 @@ public partial class MeterOptionViewModel : ObservableObject
         SelectCommand = new RelayCommand(select);
     }
 
-    public static string GetLabel(int code) => AvailableMeters.First(meter => meter.Code == code).Label;
+    public static string GetLabel(int code) => code == 6
+        ? "TEMP"
+        : AvailableMeters.First(meter => meter.Code == code).Label;
 }

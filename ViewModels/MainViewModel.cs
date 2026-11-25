@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using FTX1Control.Services;
 using System.IO;
 using System.Globalization;
+using System.Reflection;
 
 namespace FTX1Control.ViewModels;
 
@@ -24,6 +25,8 @@ public partial class MainViewModel : ViewModelBase
     private const int MaximumPinnedFrequencies = 5;
     private const long VfoSwapDetectionWindowMilliseconds = 1000;
     private static readonly IBrush TransmitIndicatorRedBrush = new ImmutableSolidColorBrush(Color.FromRgb(229, 57, 53));
+
+    public string BuildInfo { get; } = CreateBuildInfo();
 
     private static readonly (int Raw, double Watts)[] PowerCalibration =
     {
@@ -45,12 +48,40 @@ public partial class MainViewModel : ViewModelBase
         (220, 5.0)
     };
 
+    private static string CreateBuildInfo()
+    {
+        var assembly = typeof(MainViewModel).Assembly;
+        var configuration = assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration
+            ?? throw new InvalidOperationException("Build configuration metadata is missing.");
+        var metadata = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .ToDictionary(attribute => attribute.Key, attribute => attribute.Value);
+        if (!metadata.TryGetValue("BuildTimestampUtc", out var timestampValue) || string.IsNullOrEmpty(timestampValue))
+        {
+            throw new InvalidOperationException("Build timestamp metadata is missing.");
+        }
+
+        if (!metadata.TryGetValue("BuildNumber", out var buildNumber) || string.IsNullOrEmpty(buildNumber))
+        {
+            throw new InvalidOperationException("Build number metadata is missing.");
+        }
+
+        var buildTimestamp = DateTime.ParseExact(
+            timestampValue,
+            "yyyyMMddHHmmssfff",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+
+        return $"{configuration} | {buildTimestamp.ToLocalTime():yyyy-MM-dd HH:mm:ss} | {buildNumber}";
+    }
+
     private readonly CatSerialConnection _cat = new();
     private readonly Queue<string> _catLogLines = new();
     private readonly object _catLogFileSync = new();
     private string? _catLogFilePath;
     private CancellationTokenSource? _transmitMeterPollingCancellation;
     private Task? _transmitMeterPollingTask;
+    private CancellationTokenSource? _funcKnobPollingCancellation;
+    private Task? _funcKnobPollingTask;
     private readonly SemaphoreSlim _dLevelOperation = new(1, 1);
     private TaskCompletionSource<bool>? _meterDetectorReadCompletion;
     private bool _requestedPeakMeterDetector;
@@ -69,6 +100,8 @@ public partial class MainViewModel : ViewModelBase
     private CancellationTokenSource? _rfPowerChangeCancellation;
     private TaskCompletionSource<int>? _rfPowerReadCompletion;
     private (int Vfo, int Band, bool IsAm)? _rfPowerContext;
+    private bool _isApplyingFuncKnobFromRadio;
+    private int? _funcKnobCode;
     private PendingVfoSwap? _pendingVfoSwap;
     private PendingAudioGainUpdate? _pendingAudioGainUpdate;
 
@@ -106,7 +139,7 @@ public partial class MainViewModel : ViewModelBase
     private bool _isConnecting;
 
     private string _connectionStatus = "NIEPOŁĄCZONY";
-    private string _statusMessage = "Wybierz port COM i połącz się z radiem FTX-1.";
+    private string _statusMessage = string.Empty;
     private string _catLogFileError = string.Empty;
 
     [ObservableProperty]
@@ -114,6 +147,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isCatLogAutoScroll = true;
+
+    [ObservableProperty]
+    private string? _selectedFuncKnobOption;
 
     [ObservableProperty]
     private string _powerOutputReading = "-- W";
@@ -217,6 +253,18 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<MeterOptionViewModel> SubMeters { get; }
     public ObservableCollection<PinnedFrequencyViewModel> MainPinnedFrequencies { get; } = new();
     public ObservableCollection<PinnedFrequencyViewModel> SubPinnedFrequencies { get; } = new();
+    public ObservableCollection<string> FuncKnobOptions { get; } = new()
+    {
+        "D-LEVEL",
+        "RF POWER",
+        "MIC GAIN",
+        "AMC LEVEL",
+        "PROC LEVEL",
+        "VOX GAIN",
+        "MONI LEVEL",
+        "CONTRAST",
+        "DIMMER"
+    };
 
     public event Action? CatLogOldestLineRemoved;
 
@@ -279,6 +327,12 @@ public partial class MainViewModel : ViewModelBase
     public bool IsAverageMeterDetector => IsPeakMeterDetector == false;
     public bool IsPeakMeterDetectorSelected => IsPeakMeterDetector == true;
     public bool CanSelectMeterDetector => IsConnected && !IsMeterDetectorUpdating;
+    public string MainSelectedMeterLabel => _mainMeterCode is int code
+        ? MeterOptionViewModel.GetLabel(code)
+        : "--";
+    public string SubSelectedMeterLabel => _subMeterCode is int code
+        ? MeterOptionViewModel.GetLabel(code)
+        : "--";
     public bool CanTuneAntenna => IsConnected && !IsTransmitting;
     public string RfPowerReading => _rfPowerWatts is int watts ? $"{watts} W" : "-- W";
     public bool IsRfPower5Selected => _rfPowerWatts == 5;
@@ -343,6 +397,7 @@ public partial class MainViewModel : ViewModelBase
         InitializeCatLogFile();
         MainMeters = CreateMeterOptions(0);
         SubMeters = CreateMeterOptions(1);
+        SelectedFuncKnobOption = null;
         RefreshComPorts();
     }
 
@@ -482,6 +537,7 @@ public partial class MainViewModel : ViewModelBase
         if (IsConnected)
         {
             await StopTransmitMeterPollingAsync();
+            await StopFuncKnobPollingAsync();
             _cat.AutoInformationReceived -= OnAutoInformationReceived;
             _cat.AutoInformationError -= OnAutoInformationError;
             Exception? disconnectException = null;
@@ -499,7 +555,7 @@ public partial class MainViewModel : ViewModelBase
             IsConnected = false;
             ConnectionStatus = "NIEPOŁĄCZONY";
             StatusMessage = disconnectException is null
-                ? "Połączenie z portem szeregowym zostało zamknięte."
+                ? string.Empty
                 : $"Port został zamknięty, ale nie udało się wyłączyć Auto Information: {disconnectException.Message}";
             return;
         }
@@ -585,9 +641,7 @@ public partial class MainViewModel : ViewModelBase
             for (var attempt = 1; attempt <= maximumAttempts; attempt++)
             {
                 ConnectionStatus = "ŁĄCZENIE";
-                StatusMessage = attempt == 1
-                    ? $"Próba połączenia z {selectedComPort.PortName}..."
-                    : $"Ponawianie połączenia ({attempt}/{maximumAttempts})...";
+                StatusMessage = string.Empty;
                 _cat.CatFrameLogged -= OnCatFrameLogged;
                 _cat.CatFrameLogged += OnCatFrameLogged;
 
@@ -607,6 +661,8 @@ public partial class MainViewModel : ViewModelBase
                         string? meterDetectorError = null;
                         (int Watts, Dictionary<int, int> Limits, string? Warning)? rfPowerSettings = null;
                         string? rfPowerError = null;
+                        int? funcKnobCode = null;
+                        string? funcKnobError = null;
                         try
                         {
                             isPeakMeterDetector = _cat.ReadPeakMeterDetector();
@@ -625,12 +681,23 @@ public partial class MainViewModel : ViewModelBase
                             rfPowerError = exception.Message;
                         }
 
-                        return (meters, readings, transmitVfo, vfoModes, audioGains, isPeakMeterDetector, meterDetectorError, rfPowerSettings, rfPowerError);
+                        try
+                        {
+                            funcKnobCode = _cat.ReadFuncKnobFunction();
+                        }
+                        catch (Exception exception) when (exception is IOException or InvalidDataException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+                        {
+                            funcKnobError = exception.Message;
+                        }
+
+                        return (meters, readings, transmitVfo, vfoModes, audioGains, isPeakMeterDetector, meterDetectorError, rfPowerSettings, rfPowerError, funcKnobCode, funcKnobError);
                     });
                     _mainMeterCode = connectionReadings.meters.Main;
                     _subMeterCode = connectionReadings.meters.Sub;
                     UpdateMeterSelection(MainMeters, _mainMeterCode);
                     UpdateMeterSelection(SubMeters, _subMeterCode);
+                    OnPropertyChanged(nameof(MainSelectedMeterLabel));
+                    OnPropertyChanged(nameof(SubSelectedMeterLabel));
                     ApplyRadioReadings(
                         connectionReadings.readings,
                         connectionReadings.transmitVfo,
@@ -648,23 +715,39 @@ public partial class MainViewModel : ViewModelBase
 
                         ApplyRfPowerFromRadio(powerSettings.Watts);
                     }
+                    if (connectionReadings.funcKnobCode is int funcKnobCode)
+                    {
+                        ApplyFuncKnobFromRadio(funcKnobCode);
+                    }
+                    else
+                    {
+                        SelectedFuncKnobOption = null;
+                    }
                     _cat.AutoInformationReceived += OnAutoInformationReceived;
                     _cat.AutoInformationError += OnAutoInformationError;
                     _cat.EnableAutoInformation();
                     IsConnected = true;
                     ConnectionStatus = "POŁĄCZONY";
-                    StatusMessage = connectionReadings.meterDetectorError is null
-                        ? $"Połączono z {selectedComPort.DisplayName} ({SelectedBaudRate} bps). Auto Information jest włączone."
-                        : $"Połączono, ale nie udało się odczytać AVG/PEAK: {connectionReadings.meterDetectorError}";
+                    var connectionErrors = new List<string>();
+                    if (connectionReadings.meterDetectorError is not null)
+                    {
+                        connectionErrors.Add($"Nie udało się odczytać AVG/PEAK: {connectionReadings.meterDetectorError}");
+                    }
                     if (connectionReadings.rfPowerError is not null)
                     {
-                        StatusMessage = $"{_statusMessage} Nie udało się odczytać mocy SPA-1: {connectionReadings.rfPowerError}";
+                        connectionErrors.Add($"Nie udało się odczytać mocy SPA-1: {connectionReadings.rfPowerError}");
                     }
-                    else if (connectionReadings.rfPowerSettings?.Warning is string powerWarning)
+                    if (connectionReadings.funcKnobError is not null)
                     {
-                        StatusMessage = $"{_statusMessage} Nie udało się odczytać niektórych limitów mocy: {powerWarning}";
+                        connectionErrors.Add($"Nie udało się odczytać funkcji pokrętła FUNC: {connectionReadings.funcKnobError}");
                     }
+                    if (connectionReadings.rfPowerSettings?.Warning is string powerWarning)
+                    {
+                        connectionErrors.Add($"Nie udało się odczytać niektórych limitów mocy: {powerWarning}");
+                    }
+                    StatusMessage = string.Join(" ", connectionErrors);
                     StartTransmitMeterPolling();
+                    StartFuncKnobPolling();
                     RequestDLevelForCurrentFrequency();
                     RequestNoiseControlLevelsForCurrentFrequency();
                     return;
@@ -915,6 +998,154 @@ public partial class MainViewModel : ViewModelBase
         _transmitMeterPollingTask = null;
     }
 
+    private void StartFuncKnobPolling()
+    {
+        _funcKnobPollingCancellation = new CancellationTokenSource();
+        _funcKnobPollingTask = PollFuncKnobAsync(_funcKnobPollingCancellation.Token);
+    }
+
+    private async Task PollFuncKnobAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(5000, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Run(() =>
+                {
+                    var functionCode = _cat.ReadFuncKnobFunction();
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (IsConnected)
+                        {
+                            ApplyFuncKnobFromRadio(functionCode);
+                        }
+                    });
+                }, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (IsConnected)
+                {
+                    StatusMessage = $"Błąd odczytu funkcji pokrętła FUNC CAT: {exception.Message}";
+                }
+            });
+        }
+    }
+
+    private async Task StopFuncKnobPollingAsync()
+    {
+        var cancellation = _funcKnobPollingCancellation;
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        _funcKnobPollingCancellation = null;
+        cancellation.Cancel();
+        if (_funcKnobPollingTask is not null)
+        {
+            await _funcKnobPollingTask;
+        }
+
+        cancellation.Dispose();
+        _funcKnobPollingTask = null;
+    }
+
+    private static string? GetFuncKnobOptionName(int functionCode) => functionCode switch
+    {
+        0x01 => "D-LEVEL",
+        0x04 => "CONTRAST",
+        0x05 => "DIMMER",
+        0x07 => "MIC GAIN",
+        0x08 => "PROC LEVEL",
+        0x09 => "AMC LEVEL",
+        0x0A => "VOX GAIN",
+        0x0D => "RF POWER",
+        0x0E => "MONI LEVEL",
+        _ => null
+    };
+
+    private void ApplyFuncKnobFromRadio(int functionCode)
+    {
+        _funcKnobCode = functionCode;
+        var optionName = GetFuncKnobOptionName(functionCode);
+        if (optionName is not null)
+        {
+            _isApplyingFuncKnobFromRadio = true;
+            try
+            {
+                SelectedFuncKnobOption = optionName;
+            }
+            finally
+            {
+                _isApplyingFuncKnobFromRadio = false;
+            }
+        }
+        else
+        {
+            _isApplyingFuncKnobFromRadio = true;
+            try
+            {
+                var unknownOption = $"INNA ({functionCode:X})";
+                if (!FuncKnobOptions.Contains(unknownOption))
+                {
+                    FuncKnobOptions.Add(unknownOption);
+                }
+                SelectedFuncKnobOption = unknownOption;
+            }
+            finally
+            {
+                _isApplyingFuncKnobFromRadio = false;
+            }
+        }
+    }
+
+    private void SetFuncKnobOption(string? optionName)
+    {
+        if (_isApplyingFuncKnobFromRadio || !IsConnected || optionName is null)
+        {
+            return;
+        }
+
+        var functionCode = optionName switch
+        {
+            "D-LEVEL" => 0x01,
+            "CONTRAST" => 0x04,
+            "DIMMER" => 0x05,
+            "MIC GAIN" => 0x07,
+            "PROC LEVEL" => 0x08,
+            "AMC LEVEL" => 0x09,
+            "VOX GAIN" => 0x0A,
+            "RF POWER" => 0x0D,
+            "MONI LEVEL" => 0x0E,
+            _ => (int?)null
+        };
+
+        if (functionCode is not int code)
+        {
+            return;
+        }
+
+        try
+        {
+            _cat.SetFuncKnobFunction(code);
+            _funcKnobCode = code;
+            StatusMessage = string.Empty;
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
+        {
+            StatusMessage = $"Nie udało się ustawić funkcji pokrętła FUNC: {exception.Message}";
+        }
+    }
+
     private void ApplyRadioReadings(
         (int MainFrequencyHz, int SubFrequencyHz, bool IsTransmitting) readings,
         int transmitVfo,
@@ -1049,6 +1280,13 @@ public partial class MainViewModel : ViewModelBase
             return $"{frame} — {Localize("limit mocy RF, pozycja CAT", "RF power limit, CAT item")} {powerLimitItem}: {maximumRfPower} W";
         }
 
+        if (CatSerialConnection.TryParseFuncKnobFunction(message, out var funcKnobCode))
+        {
+            var function = GetFuncKnobOptionName(funcKnobCode)
+                ?? $"{Localize("inna", "other")} ({char.ToUpperInvariant(message[3])})";
+            return $"{frame} — {Localize("funkcja pokrętła FUNC", "FUNC knob function")}: {function}";
+        }
+
         if (CatSerialConnection.TryParseDLevel(message, out var dLevel))
         {
             return $"{frame} — D-LEVEL: {dLevel:+0.0;-0.0;+0.0} dB";
@@ -1105,6 +1343,13 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
+            if (message.StartsWith("SF", StringComparison.OrdinalIgnoreCase)
+                && CatSerialConnection.TryParseFuncKnobFunction(message, out var funcKnobCode))
+            {
+                ApplyFuncKnobFromRadio(funcKnobCode);
+                return;
+            }
+
             if (message.StartsWith("SS04", StringComparison.OrdinalIgnoreCase))
             {
                 if (!CatSerialConnection.TryParseDLevel(message, out var level))
@@ -1330,7 +1575,7 @@ public partial class MainViewModel : ViewModelBase
                 if (message.Length != 4
                     || !int.TryParse(message.AsSpan(2, 1), out var mainMeter)
                     || !int.TryParse(message.AsSpan(3, 1), out var subMeter)
-                    || mainMeter is < 0 or > 5 || subMeter is < 0 or > 5)
+                    || mainMeter is < 0 or > 6 || subMeter is < 0 or > 6)
                 {
                     throw new InvalidDataException($"Nieoczekiwana ramka CAT ustawień mierników: {message};");
                 }
@@ -1339,6 +1584,8 @@ public partial class MainViewModel : ViewModelBase
                 _subMeterCode = subMeter;
                 UpdateMeterSelection(MainMeters, _mainMeterCode);
                 UpdateMeterSelection(SubMeters, _subMeterCode);
+                OnPropertyChanged(nameof(MainSelectedMeterLabel));
+                OnPropertyChanged(nameof(SubSelectedMeterLabel));
             }
         }
         catch (InvalidDataException exception)
@@ -2033,14 +2280,19 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    partial void OnRfPowerSliderValueChanged(double value)
+    public void CommitRfPowerSliderValue()
     {
         if (_isApplyingRadioRfPower || !CanSetRfPower)
         {
             return;
         }
 
-        var watts = Math.Clamp((int)Math.Round(value, MidpointRounding.AwayFromZero), 5, MaximumRfPower);
+        var watts = Math.Clamp((int)Math.Round(RfPowerSliderValue, MidpointRounding.AwayFromZero), 5, MaximumRfPower);
+        if (_rfPowerWatts == watts)
+        {
+            return;
+        }
+
         CancelRfPowerChange();
         var cancellation = new CancellationTokenSource();
         _rfPowerChangeCancellation = cancellation;
@@ -2051,7 +2303,6 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            await Task.Delay(150, cancellation.Token);
             if (!CanSetRfPower || watts > MaximumRfPower)
             {
                 return;
@@ -2095,14 +2346,8 @@ public partial class MainViewModel : ViewModelBase
     {
         if (CanSelectRfPowerPreset(value) && int.TryParse(value, out var watts))
         {
-            if (RfPowerSliderValue == watts && _rfPowerWatts != watts)
-            {
-                OnRfPowerSliderValueChanged(watts);
-            }
-            else
-            {
-                RfPowerSliderValue = watts;
-            }
+            RfPowerSliderValue = watts;
+            CommitRfPowerSliderValue();
         }
     }
 
@@ -2171,7 +2416,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             _cat.StartAntennaTuning();
-            StatusMessage = "Wysłano AC103; — żądanie strojenia anteny.";
+            StatusMessage = string.Empty;
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
         {
@@ -2240,7 +2485,7 @@ public partial class MainViewModel : ViewModelBase
             _mainMeterCode = mainMeter;
             _subMeterCode = subMeter;
 
-            StatusMessage = $"Wysłano MS{mainMeter}{subMeter}; MAIN: {MeterOptionViewModel.GetLabel(mainMeter)}, SUB: {MeterOptionViewModel.GetLabel(subMeter)}.";
+            StatusMessage = string.Empty;
         }
         catch (Exception exception)
         {
@@ -2249,7 +2494,10 @@ public partial class MainViewModel : ViewModelBase
 
         UpdateMeterSelection(MainMeters, _mainMeterCode);
         UpdateMeterSelection(SubMeters, _subMeterCode);
+        OnPropertyChanged(nameof(MainSelectedMeterLabel));
+        OnPropertyChanged(nameof(SubSelectedMeterLabel));
     }
+
 
     private static void UpdateMeterSelection(ObservableCollection<MeterOptionViewModel> meters, int? selectedCode)
     {
@@ -2325,6 +2573,8 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnSelectedComPortChanged(ComPortOption? value) =>
         ToggleConnectionCommand.NotifyCanExecuteChanged();
+
+    partial void OnSelectedFuncKnobOptionChanged(string? value) => SetFuncKnobOption(value);
 
     partial void OnIsTransmittingChanged(bool value)
     {

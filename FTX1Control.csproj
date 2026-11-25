@@ -5,7 +5,14 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\ftx1-radio.ico</ApplicationIcon>
+    <AppVersionPrefix Condition="'$(AppVersionPrefix)' == ''">0.11</AppVersionPrefix>
+    <AppBuildTimestamp>$([System.DateTime]::UtcNow.ToString('yyyyMMddHHmmssfff'))</AppBuildTimestamp>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildTimestampUtc" Value="$(AppBuildTimestamp)" />
+    <AssemblyMetadata Include="BuildNumber" Value="$(AppVersionPrefix).$(AppBuildTimestamp)" />
+  </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Models\" />

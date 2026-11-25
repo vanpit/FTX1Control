@@ -21,6 +21,7 @@
             <x:String x:Key="IncreaseDnrTip">Zwiększ poziom DNR</x:String>
             <x:String x:Key="DecreaseDnrTip">Zmniejsz poziom DNR</x:String>
             <x:String x:Key="TransmitPowerTitle">MOC NADAWANIA</x:String>
+            <x:String x:Key="SettingsTitle">USTAWIENIA</x:String>
             <x:String x:Key="TransmitMetersTitle">MIERNIKI NADAWANIA</x:String>
             <x:String x:Key="ActiveDuringTx">Aktywne podczas TX</x:String>
             <x:String x:Key="PowerOutputEstimate">PO - MOC WYJŚCIOWA (SZAC.)</x:String>
@@ -32,7 +33,6 @@
             <x:String x:Key="MuteMainVolumeTip">Wycisz lub przywróć głośność MAIN VFO</x:String>
             <x:String x:Key="MuteSubVolumeTip">Wycisz lub przywróć głośność SUB VFO</x:String>
             <x:String x:Key="CatStatus">STATUS CAT</x:String>
-            <x:String x:Key="CatFrames">RAMKI CAT  [TX] wysłane  |  [RX] odebrane</x:String>
         </ResourceDictionary>
     </Application.Resources>
 

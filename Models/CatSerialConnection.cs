@@ -60,7 +60,7 @@ public sealed class CatSerialConnection : IDisposable
             if (response.Length != 4 || !response.StartsWith("MS", StringComparison.OrdinalIgnoreCase)
                 || !int.TryParse(response.AsSpan(2, 1), out var mainMeter)
                 || !int.TryParse(response.AsSpan(3, 1), out var subMeter)
-                || mainMeter is < 0 or > 5 || subMeter is < 0 or > 5)
+                || mainMeter is < 0 or > 6 || subMeter is < 0 or > 6)
             {
                 throw new InvalidDataException($"Unexpected CAT meter response: {response};");
             }
@@ -223,6 +223,65 @@ public sealed class CatSerialConnection : IDisposable
     }
 
     public void SetNoiseBlankerLevel(int level) => SetNoiseControlLevel("NL", level);
+
+    public int ReadFuncKnobFunction()
+    {
+        lock (_sync)
+        {
+            var response = Query("SF0;");
+            if (!TryParseFuncKnobFunction(response, out var functionCode))
+            {
+                throw new InvalidDataException($"Nieoczekiwana odpowiedź CAT funkcji pokrętła FUNC: {response};");
+            }
+
+            return functionCode;
+        }
+    }
+
+    public void SetFuncKnobFunction(int functionCode)
+    {
+        if (functionCode is < 0 or > 0x11)
+        {
+            throw new ArgumentOutOfRangeException(nameof(functionCode));
+        }
+
+        var functionChar = functionCode < 10
+            ? (char)('0' + functionCode)
+            : (char)('A' + functionCode - 10);
+
+        lock (_sync)
+        {
+            var serialPort = GetOpenPort();
+            var frame = $"SF0{functionChar};";
+            LogFrame("TX", frame);
+            serialPort.Write(frame);
+        }
+    }
+
+    public static bool TryParseFuncKnobFunction(string response, out int functionCode)
+    {
+        functionCode = 0;
+        if (response.Length != 4
+            || !response.StartsWith("SF0", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var functionChar = char.ToUpperInvariant(response[3]);
+        if (functionChar is >= '0' and <= '9')
+        {
+            functionCode = functionChar - '0';
+            return true;
+        }
+
+        if (functionChar is >= 'A' and <= 'H')
+        {
+            functionCode = functionChar - 'A' + 10;
+            return functionCode <= 0x11;
+        }
+
+        return false;
+    }
 
     public void RequestDigitalNoiseReductionLevel()
     {
@@ -417,7 +476,7 @@ public sealed class CatSerialConnection : IDisposable
     {
         if (mainMeter is < 0 or > 5 || subMeter is < 0 or > 5)
         {
-            throw new ArgumentOutOfRangeException(nameof(mainMeter), "Meter codes must be between 0 and 5.");
+            throw new ArgumentOutOfRangeException(nameof(mainMeter), "Meter codes must be between 0 and 5; TEMP (6) is radio-only.");
         }
 
         lock (_sync)
@@ -519,15 +578,20 @@ public sealed class CatSerialConnection : IDisposable
 
     private void OnDataReceived(object sender, SerialDataReceivedEventArgs eventArgs)
     {
-        var serialPort = _serialPort;
-        if (serialPort?.IsOpen != true)
-        {
-            return;
-        }
-
         try
         {
-            var data = serialPort.ReadExisting();
+            string data;
+            lock (_sync)
+            {
+                var serialPort = _serialPort;
+                if (serialPort?.IsOpen != true)
+                {
+                    return;
+                }
+
+                data = serialPort.ReadExisting();
+            }
+
             if (data.Length == 0)
             {
                 return;
