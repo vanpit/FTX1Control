@@ -594,7 +594,15 @@
     </Grid>
     </ScrollViewer>
     <Border Grid.Row="1" Background="#151D20" BorderBrush="#303B3C" BorderThickness="0,1,0,0" Padding="22.5,8">
-        <TextBlock Text="{Binding BuildInfo}" FontSize="10" Foreground="#98A8A2" />
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding BuildInfo}" FontSize="10" Foreground="#98A8A2" VerticalAlignment="Center" />
+            <TextBlock x:Name="ClockText" Grid.Column="1" FontFamily="Consolas" FontSize="21"
+                       Margin="0,-8,0,-8" VerticalAlignment="Center">
+                <TextBlock.RenderTransform>
+                    <TranslateTransform Y="2" />
+                </TextBlock.RenderTransform>
+            </TextBlock>
+        </Grid>
     </Border>
     </Grid>
 

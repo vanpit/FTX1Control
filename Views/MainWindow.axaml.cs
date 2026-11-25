@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private Size _lastCatLogExtent;
     private Size _lastCatLogViewport;
     private bool _catLogContentUpdatePending;
+    private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private const double VolumeWheelStep = 5;
 
     public MainWindow()
@@ -35,6 +36,8 @@ public partial class MainWindow : Window
         CatLogScrollViewer.ScrollChanged += OnCatLogScrollChanged;
         Opened += (_, _) =>
         {
+            UpdateClock();
+            _clockTimer.Start();
             if (_savedWindowPosition is PixelPoint savedPosition)
             {
                 Position = savedPosition;
@@ -42,6 +45,7 @@ public partial class MainWindow : Window
 
             _lastKnownWindowPosition = Position;
         };
+        _clockTimer.Tick += (_, _) => UpdateClock();
         PositionChanged += (_, _) => _lastKnownWindowPosition = Position;
         Loaded += async (_, _) =>
         {
@@ -55,6 +59,7 @@ public partial class MainWindow : Window
         Closing += (_, _) => SaveWindowPosition();
         Closed += (_, _) =>
         {
+            _clockTimer.Stop();
             if (DataContext is MainViewModel viewModel)
             {
                 viewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
@@ -63,6 +68,8 @@ public partial class MainWindow : Window
             }
         };
     }
+
+    private void UpdateClock() => ClockText.Text = DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
 
     private void OnMainViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
