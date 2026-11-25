@@ -375,6 +375,8 @@ public partial class MainViewModel : ViewModelBase
     public string SubVfoStateText => TransmitVfo switch { 0 => "RX", 1 => "TRX", _ => string.Empty };
     public IBrush MainVfoStateBrush => GetVfoStateBrush(TransmitVfo == 0);
     public IBrush SubVfoStateBrush => GetVfoStateBrush(TransmitVfo == 1);
+    public bool IsMainVfoTransmitting => IsTransmitting && TransmitVfo == 0;
+    public bool IsSubVfoTransmitting => IsTransmitting && TransmitVfo == 1;
     public IBrush MainFrequencyBrush => GetFrequencyBrush(IsTransmitting && TransmitVfo == 0, TransmitVfo == 1);
     public IBrush SubFrequencyBrush => GetFrequencyBrush(IsTransmitting && TransmitVfo == 1, TransmitVfo == 0);
     public double MainFrequencyFontSize => TransmitVfo == 0 ? 28 : 22;
@@ -2595,6 +2597,8 @@ public partial class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(TransmitStatusText));
         OnPropertyChanged(nameof(TransmitStatusBrush));
+        OnPropertyChanged(nameof(IsMainVfoTransmitting));
+        OnPropertyChanged(nameof(IsSubVfoTransmitting));
         OnPropertyChanged(nameof(MainFrequencyBrush));
         OnPropertyChanged(nameof(SubFrequencyBrush));
         OnPropertyChanged(nameof(CanTuneAntenna));
@@ -2633,6 +2637,8 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(SubVfoStateText));
         OnPropertyChanged(nameof(MainVfoStateBrush));
         OnPropertyChanged(nameof(SubVfoStateBrush));
+        OnPropertyChanged(nameof(IsMainVfoTransmitting));
+        OnPropertyChanged(nameof(IsSubVfoTransmitting));
         OnPropertyChanged(nameof(MainFrequencyBrush));
         OnPropertyChanged(nameof(SubFrequencyBrush));
         OnPropertyChanged(nameof(MainFrequencyFontSize));
