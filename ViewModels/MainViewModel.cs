@@ -196,6 +196,12 @@ public partial class MainViewModel : ViewModelBase
     private string _sMeterReading = "--";
 
     [ObservableProperty]
+    private int _subSMeterRaw;
+
+    [ObservableProperty]
+    private string _subSMeterReading = "--";
+
+    [ObservableProperty]
     private decimal? _dLevel;
 
     [ObservableProperty]
@@ -230,6 +236,8 @@ public partial class MainViewModel : ViewModelBase
 
     public int SMeterSRangeValue => Math.Min(SMeterRaw, 125);
     public int SMeterOverRangeValue => Math.Max(SMeterRaw - 125, 0);
+    public int SubSMeterSRangeValue => Math.Min(SubSMeterRaw, 125);
+    public int SubSMeterOverRangeValue => Math.Max(SubSMeterRaw - 125, 0);
     public string DLevelReading => DLevel is decimal level
         ? $"{level.ToString("+0.0;-0.0;+0.0", CultureInfo.InvariantCulture)} dB"
         : "-- dB";
@@ -957,6 +965,10 @@ public partial class MainViewModel : ViewModelBase
                 {
                     await Task.Run(_cat.RequestTransmitMeterReadings, cancellationToken);
                 }
+                else
+                {
+                    await Task.Run(_cat.RequestSubSMeterReading, cancellationToken);
+                }
 
                 await Task.Delay(500, cancellationToken);
             }
@@ -973,7 +985,7 @@ public partial class MainViewModel : ViewModelBase
             {
                 if (IsConnected)
                 {
-                    StatusMessage = $"Błąd odczytu mierników TX CAT: {exception.Message}";
+                    StatusMessage = $"Błąd odczytu mierników CAT: {exception.Message}";
                 }
             });
         }
@@ -1322,7 +1334,7 @@ public partial class MainViewModel : ViewModelBase
                 4 => $"{frame} — ALC: {ConvertAlcReading(value)}% {Localize($"(wartość CAT: {value}, dodatkowa: {additionalValue})", $"(CAT value: {value}, additional: {additionalValue})")}",
                 5 => $"{frame} — {Localize("moc PO", "PO power")}: {Math.Round(ConvertPowerReading(value), MidpointRounding.AwayFromZero):0} W {Localize($"(wartość CAT: {value}, dodatkowa: {additionalValue})", $"(CAT value: {value}, additional: {additionalValue})")}",
                 6 => $"{frame} — SWR: {ConvertSwrReading(value):0.0}:1 {Localize($"(wartość CAT: {value}, dodatkowa: {additionalValue})", $"(CAT value: {value}, additional: {additionalValue})")}",
-                1 => $"{frame} — {Localize($"S-metr: P2={value} ({FormatSMeterValue(value)}; dodatkowa: {additionalValue})", $"S-meter: P2={value} ({FormatSMeterValue(value)}; additional: {additionalValue})")}",
+                1 or 2 => $"{frame} — {Localize("S-metr", "S-meter")} {(meterCode == 1 ? "MAIN" : "SUB")}: P2={value} ({FormatSMeterValue(value)}; {Localize("dodatkowa", "additional")}: {additionalValue})",
                 _ => $"{frame} — {Localize($"odczyt miernika CAT, kod: {meterCode}, wartość: {value}, dodatkowa: {additionalValue}", $"CAT meter reading, code: {meterCode}, value: {value}, additional: {additionalValue}")}"
             };
         }
@@ -1566,6 +1578,11 @@ public partial class MainViewModel : ViewModelBase
                 {
                     UpdateSMeterReading(value);
                 }
+                else if (!IsTransmitting && meterCode == 2)
+                {
+                    SubSMeterRaw = value;
+                    SubSMeterReading = FormatSMeterValue(value);
+                }
 
                 return;
             }
@@ -1672,6 +1689,8 @@ public partial class MainViewModel : ViewModelBase
     {
         SMeterRaw = 0;
         SMeterReading = "--";
+        SubSMeterRaw = 0;
+        SubSMeterReading = "--";
     }
 
     private void UpdateSMeterReading(int raw)
@@ -2632,6 +2651,12 @@ public partial class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(SMeterSRangeValue));
         OnPropertyChanged(nameof(SMeterOverRangeValue));
+    }
+
+    partial void OnSubSMeterRawChanged(int value)
+    {
+        OnPropertyChanged(nameof(SubSMeterSRangeValue));
+        OnPropertyChanged(nameof(SubSMeterOverRangeValue));
     }
 
     public void Dispose()

@@ -4,11 +4,11 @@
         xmlns:models="using:FTX1Control.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1213.2" d:DesignHeight="1103.34"
+        mc:Ignorable="d" d:DesignWidth="1156" d:DesignHeight="1010"
         x:Class="FTX1Control.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Topmost="{Binding IsAlwaysOnTop}"
-        Width="1213.2" Height="1103.34" MinWidth="1000" MinHeight="1010" WindowStartupLocation="Manual"
+        Width="1156" Height="1010" MinWidth="1000" MinHeight="1010" WindowStartupLocation="Manual"
         Background="#080D0E"
         Icon="/Assets/ftx1-radio.ico"
         Title="{DynamicResource WindowTitle}">
@@ -208,7 +208,7 @@
     </Window.Styles>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Margin="22.5,24" RowSpacing="18">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="22.5,24" RowSpacing="18">
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" VerticalAlignment="Center" Margin="0,0,0,6">
             <TextBlock Text="{DynamicResource HeaderEyebrow}" FontSize="12" FontWeight="Bold" Foreground="#B6D66C" />
             <TextBlock Grid.Row="1" Text="{DynamicResource HeaderTitle}" FontSize="30" FontWeight="Bold" VerticalAlignment="Center" />
@@ -267,37 +267,7 @@
             </Border>
         </Grid>
 
-        <Border Grid.Row="2" Background="#151D20" BorderBrush="#B6D66C" BorderThickness="4,1,1,1" CornerRadius="5" Padding="18">
-            <Grid ColumnDefinitions="*" RowDefinitions="Auto,18,Auto" RowSpacing="6">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="{DynamicResource SMeterTitle}" FontSize="13" FontWeight="Bold" Foreground="#B6D66C" />
-                    <TextBlock Grid.Column="1" Text="{Binding SMeterReading}" FontSize="13" FontWeight="Bold" Foreground="#E9EFED" />
-                </Grid>
-                <Grid Grid.Row="1" ColumnDefinitions="125*,130*" ColumnSpacing="1" Height="18">
-                    <ProgressBar Value="{Binding SMeterSRangeValue}" Maximum="125" Foreground="#FFFFFF" Background="#263132" />
-                    <ProgressBar Grid.Column="1" Value="{Binding SMeterOverRangeValue}" Maximum="130" Foreground="#328ACB" Background="#263132" />
-                </Grid>
-                <Grid Grid.Row="2" ColumnDefinitions="125*,47*,48*,35*">
-                    <Grid Grid.Column="0" ColumnDefinitions="*,*,*,*,*,*,*,*,*">
-                        <TextBlock Classes="s-meter-scale" Text="S0" HorizontalAlignment="Left" />
-                        <TextBlock Grid.Column="0" Classes="s-meter-scale" Text="S1" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="1" Classes="s-meter-scale" Text="S2" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="2" Classes="s-meter-scale" Text="S3" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="3" Classes="s-meter-scale" Text="S4" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="4" Classes="s-meter-scale" Text="S5" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="5" Classes="s-meter-scale" Text="S6" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="6" Classes="s-meter-scale" Text="S7" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="7" Classes="s-meter-scale" Text="S8" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="8" Classes="s-meter-scale" Text="S9" HorizontalAlignment="Right" />
-                    </Grid>
-                    <TextBlock Grid.Column="1" Classes="s-meter-scale" Text="+20" HorizontalAlignment="Right" />
-                    <TextBlock Grid.Column="2" Classes="s-meter-scale" Text="+40" HorizontalAlignment="Right" />
-                    <TextBlock Grid.Column="3" Classes="s-meter-scale" Text="+60" HorizontalAlignment="Right" />
-                </Grid>
-            </Grid>
-        </Border>
-
-        <Border Grid.Row="3" Background="#151D20" BorderBrush="#328ACB" BorderThickness="4,1,1,1" CornerRadius="5" Padding="18">
+        <Border Grid.Row="2" Background="#151D20" BorderBrush="#328ACB" BorderThickness="4,1,1,1" CornerRadius="5" Padding="18">
             <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
                 <TextBlock Text="{DynamicResource TransmitPowerTitle}" FontSize="13" FontWeight="Bold" Foreground="#B6D66C" />
                 <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
@@ -359,7 +329,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="4" Background="#151D20" BorderBrush="#79C6CF" BorderThickness="4,1,1,1" CornerRadius="5" Padding="18">
+        <Border Grid.Row="3" Background="#151D20" BorderBrush="#E53935" BorderThickness="4,1,1,1" CornerRadius="5" Padding="18">
             <Grid ColumnDefinitions="*,*,*,*,Auto,Auto,Auto" ColumnSpacing="20" VerticalAlignment="Center">
                 <StackPanel Spacing="5" VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource TransmitMetersTitle}" FontSize="13" FontWeight="Bold" Foreground="#B6D66C" />
@@ -388,9 +358,9 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="5" ColumnDefinitions="*,*" ColumnSpacing="13.5" MinHeight="288">
+        <Grid Grid.Row="4" ColumnDefinitions="*,*" ColumnSpacing="13.5" MinHeight="288">
             <Border Grid.Column="1" Background="#151D20" BorderBrush="#B6D66C" BorderThickness="4,1,1,1" CornerRadius="5" Padding="20">
-                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*" RowSpacing="16">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
                     <Grid Grid.Column="0" ColumnDefinitions="*,Auto,Auto">
                         <Border Background="#28352D" CornerRadius="3" Padding="8,5" VerticalAlignment="Center" HorizontalAlignment="Left">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -403,8 +373,35 @@
                             <TextBlock Text="{Binding MainModulationDisplay}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
                         </Border>
                     </Grid>
-                    <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Height="1" Background="#303B3C" />
-                    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" VerticalAlignment="Stretch">
+                    <Grid Grid.Row="1" Grid.ColumnSpan="2" RowDefinitions="Auto,12,Auto" RowSpacing="2">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource SMeterTitle}" FontSize="10" FontWeight="Bold" Foreground="#B6D66C" />
+                            <TextBlock Grid.Column="1" Text="{Binding SMeterReading}" FontSize="10" FontWeight="Bold" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="125*,130*" ColumnSpacing="1">
+                            <ProgressBar Value="{Binding SMeterSRangeValue}" Maximum="125" Foreground="#FFFFFF" Background="#263132" />
+                            <ProgressBar Grid.Column="1" Value="{Binding SMeterOverRangeValue}" Maximum="130" Foreground="#328ACB" Background="#263132" />
+                        </Grid>
+                        <Grid Grid.Row="2" ColumnDefinitions="125*,47*,48*,35*">
+                            <Grid ColumnDefinitions="*,*,*,*,*,*,*,*,*">
+                                <TextBlock Classes="s-meter-scale" Text="S0" HorizontalAlignment="Left" />
+                                <TextBlock Classes="s-meter-scale" Text="S1" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="1" Classes="s-meter-scale" Text="S2" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="2" Classes="s-meter-scale" Text="S3" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="3" Classes="s-meter-scale" Text="S4" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="4" Classes="s-meter-scale" Text="S5" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="5" Classes="s-meter-scale" Text="S6" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="6" Classes="s-meter-scale" Text="S7" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="7" Classes="s-meter-scale" Text="S8" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="8" Classes="s-meter-scale" Text="S9" HorizontalAlignment="Right" />
+                            </Grid>
+                            <TextBlock Grid.Column="1" Classes="s-meter-scale" Text="+20" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="2" Classes="s-meter-scale" Text="+40" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="3" Classes="s-meter-scale" Text="+60" HorizontalAlignment="Right" />
+                        </Grid>
+                    </Grid>
+                    <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Height="1" Background="#303B3C" />
+                    <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Grid.Column="0" IsEnabled="{Binding IsConnected}" VerticalAlignment="Top">
                             <TextBlock Text="{DynamicResource MeterSelection}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" Margin="4,0,0,5" />
                             <ItemsControl ItemsSource="{Binding MainMeters}">
@@ -430,7 +427,7 @@
                                         <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
                                             <Button Classes="pinned-frequency" Classes.selected="{Binding IsSelected}" ToolTip.Tip="{Binding Tooltip}" Command="{Binding SelectCommand}" PointerPressed="OnPinnedFrequencyPointerPressed">
                                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Label}" TextAlignment="Center" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Label}" FontWeight="Bold" TextAlignment="Center" HorizontalAlignment="Center" />
                                                     <TextBlock Text="{Binding ModeDisplay}" FontSize="11" TextAlignment="Center" HorizontalAlignment="Center" />
                                                     <TextBox Classes="pinned-frequency-callsign" Text="{Binding CallSign, Mode=TwoWay}"
                                                              PlaceholderText="{DynamicResource CallSignPlaceholder}" FontFamily="Consolas" FontSize="12" TextAlignment="Center"
@@ -461,7 +458,7 @@
             </Border>
 
             <Border Background="#151D20" BorderBrush="#79C6CF" BorderThickness="4,1,1,1" CornerRadius="5" Padding="20">
-                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,*" RowSpacing="16">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
                     <Grid Grid.Column="0" ColumnDefinitions="*,Auto,Auto">
                         <Border Background="#25343A" CornerRadius="3" Padding="8,5" VerticalAlignment="Center" HorizontalAlignment="Left">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -474,8 +471,35 @@
                             <TextBlock Text="{Binding SubModulationDisplay}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
                         </Border>
                     </Grid>
-                    <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Height="1" Background="#303B3C" />
-                    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" VerticalAlignment="Stretch">
+                    <Grid Grid.Row="1" Grid.ColumnSpan="2" RowDefinitions="Auto,12,Auto" RowSpacing="2">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource SMeterTitle}" FontSize="10" FontWeight="Bold" Foreground="#79C6CF" />
+                            <TextBlock Grid.Column="1" Text="{Binding SubSMeterReading}" FontSize="10" FontWeight="Bold" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="125*,130*" ColumnSpacing="1">
+                            <ProgressBar Value="{Binding SubSMeterSRangeValue}" Maximum="125" Foreground="#FFFFFF" Background="#263132" />
+                            <ProgressBar Grid.Column="1" Value="{Binding SubSMeterOverRangeValue}" Maximum="130" Foreground="#328ACB" Background="#263132" />
+                        </Grid>
+                        <Grid Grid.Row="2" ColumnDefinitions="125*,47*,48*,35*">
+                            <Grid ColumnDefinitions="*,*,*,*,*,*,*,*,*">
+                                <TextBlock Classes="s-meter-scale" Text="S0" HorizontalAlignment="Left" />
+                                <TextBlock Classes="s-meter-scale" Text="S1" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="1" Classes="s-meter-scale" Text="S2" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="2" Classes="s-meter-scale" Text="S3" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="3" Classes="s-meter-scale" Text="S4" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="4" Classes="s-meter-scale" Text="S5" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="5" Classes="s-meter-scale" Text="S6" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="6" Classes="s-meter-scale" Text="S7" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="7" Classes="s-meter-scale" Text="S8" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="8" Classes="s-meter-scale" Text="S9" HorizontalAlignment="Right" />
+                            </Grid>
+                            <TextBlock Grid.Column="1" Classes="s-meter-scale" Text="+20" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="2" Classes="s-meter-scale" Text="+40" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="3" Classes="s-meter-scale" Text="+60" HorizontalAlignment="Right" />
+                        </Grid>
+                    </Grid>
+                    <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Height="1" Background="#303B3C" />
+                    <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Grid.Column="0" IsEnabled="{Binding IsConnected}" VerticalAlignment="Top">
                             <TextBlock Text="{DynamicResource MeterSelection}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" Margin="4,0,0,5" />
                             <ItemsControl ItemsSource="{Binding SubMeters}">
@@ -501,7 +525,7 @@
                                         <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
                                             <Button Classes="pinned-frequency" Classes.selected="{Binding IsSelected}" ToolTip.Tip="{Binding Tooltip}" Command="{Binding SelectCommand}" PointerPressed="OnPinnedFrequencyPointerPressed">
                                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Label}" TextAlignment="Center" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Label}" FontWeight="Bold" TextAlignment="Center" HorizontalAlignment="Center" />
                                                     <TextBlock Text="{Binding ModeDisplay}" FontSize="11" TextAlignment="Center" HorizontalAlignment="Center" />
                                                     <TextBox Classes="pinned-frequency-callsign" Text="{Binding CallSign, Mode=TwoWay}"
                                                              PlaceholderText="{DynamicResource CallSignPlaceholder}" FontFamily="Consolas" FontSize="12" TextAlignment="Center"
