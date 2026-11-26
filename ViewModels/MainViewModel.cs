@@ -1346,7 +1346,157 @@ public partial class MainViewModel : ViewModelBase
             return $"{frame} — {Localize("wybrane mierniki", "selected meters")}: MAIN {MeterOptionViewModel.GetLabel(mainMeter)}, SUB {MeterOptionViewModel.GetLabel(subMeter)}";
         }
 
+        if (TryDescribeAdditionalCatFrame(message, out var description))
+        {
+            return $"{frame} — {description}";
+        }
+
         return $"{frame} — {Localize("nierozpoznana ramka CAT", "unrecognized CAT frame")}";
+    }
+
+    private static bool TryDescribeAdditionalCatFrame(string message, out string description)
+    {
+        description = string.Empty;
+
+        if (message.StartsWith("EX06", StringComparison.OrdinalIgnoreCase)
+            && message.Length > 8
+            && int.TryParse(message.AsSpan(4, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var group)
+            && group is >= 2 and <= 5
+            && int.TryParse(message.AsSpan(6, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var parameter))
+        {
+            description = Localize(
+                $"ustawienie rozszerzone CAT — grupa {group:D2}, parametr {parameter:D2}: {message[8..]}",
+                $"extended CAT setting — group {group:D2}, parameter {parameter:D2}: {message[8..]}");
+            return true;
+        }
+
+        if (message.Equals("FR00", StringComparison.OrdinalIgnoreCase)
+            || message.Equals("FR01", StringComparison.OrdinalIgnoreCase))
+        {
+            description = Localize(
+                $"VFO odbiorcze: {(message[3] == '0' ? "MAIN" : "SUB")}",
+                $"receive VFO: {(message[3] == '0' ? "MAIN" : "SUB")}");
+            return true;
+        }
+
+        if (message.StartsWith("GT", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 4
+            && int.TryParse(message.AsSpan(2, 2), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            description = Localize($"ustawienie AGC (GT): {message[2..]}", $"AGC setting (GT): {message[2..]}");
+            return true;
+        }
+
+        if (message.StartsWith("IS", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 9
+            && message[4] == '-'
+            && int.TryParse(message.AsSpan(2, 2), NumberStyles.None, CultureInfo.InvariantCulture, out _)
+            && int.TryParse(message.AsSpan(5, 4), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            description = Localize($"przesunięcie IF (IS): {message[2..]}", $"IF shift (IS): {message[2..]}");
+            return true;
+        }
+
+        if (message.StartsWith("KP", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 4
+            && int.TryParse(message.AsSpan(2, 2), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            description = Localize($"ton klucza CW (KP): {message[2..]} (wartość CAT)", $"CW key tone (KP): {message[2..]} (CAT value)");
+            return true;
+        }
+
+        if (message.StartsWith("KS", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 5
+            && int.TryParse(message.AsSpan(2, 3), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            description = Localize($"szybkość klucza CW (KS): {message[2..]} WPM", $"CW key speed (KS): {message[2..]} WPM");
+            return true;
+        }
+
+        if (message.StartsWith("MG", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 5
+            && int.TryParse(message.AsSpan(2, 3), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            description = Localize($"wzmocnienie mikrofonu (MG): {message[2..]}", $"microphone gain (MG): {message[2..]}");
+            return true;
+        }
+
+        if (message.StartsWith("PA", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 4
+            && message[2] is >= '0' and <= '2'
+            && message[3] is '0' or '1')
+        {
+            description = Localize(
+                $"przedwzmacniacz RF (PA), parametr {message[2]}: {message[3]}",
+                $"RF preamplifier (PA), parameter {message[2]}: {message[3]}");
+            return true;
+        }
+
+        if (message.StartsWith("RG", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 6
+            && message[2] == '0'
+            && int.TryParse(message.AsSpan(3, 3), NumberStyles.None, CultureInfo.InvariantCulture, out var rfGain))
+        {
+            description = Localize($"wzmocnienie RF (RG): {rfGain}", $"RF gain (RG): {rfGain}");
+            return true;
+        }
+
+        if (message.StartsWith("SD", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 4
+            && int.TryParse(message.AsSpan(2, 2), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            description = Localize($"opóźnienie CW Break-in (SD): {message[2..]}", $"CW break-in delay (SD): {message[2..]}");
+            return true;
+        }
+
+        if (message.StartsWith("SH", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 6
+            && int.TryParse(message.AsSpan(2, 4), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            description = Localize($"szerokość filtru (SH): {message[2..]}", $"filter width (SH): {message[2..]}");
+            return true;
+        }
+
+        if (message.StartsWith("SQ", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 6
+            && int.TryParse(message.AsSpan(2, 4), NumberStyles.None, CultureInfo.InvariantCulture, out var squelchLevel))
+        {
+            description = Localize($"poziom squelch (SQ): {squelchLevel}", $"squelch level (SQ): {squelchLevel}");
+            return true;
+        }
+
+        if (message.StartsWith("SS", StringComparison.OrdinalIgnoreCase)
+            && message.Length is 8 or 9)
+        {
+            description = Localize($"ustawienia Spectrum Scope (SS): {message[2..]}", $"Spectrum Scope settings (SS): {message[2..]}");
+            return true;
+        }
+
+        if (message.StartsWith("VD", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 4
+            && int.TryParse(message.AsSpan(2, 2), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            description = Localize($"opóźnienie VOX/DATA (VD): {message[2..]}", $"VOX/DATA delay (VD): {message[2..]}");
+            return true;
+        }
+
+        if (message.StartsWith("VG", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 5
+            && int.TryParse(message.AsSpan(2, 3), NumberStyles.None, CultureInfo.InvariantCulture, out var voxGain))
+        {
+            description = Localize($"czułość VOX (VG): {voxGain}", $"VOX gain (VG): {voxGain}");
+            return true;
+        }
+
+        if (message.StartsWith("FD", StringComparison.OrdinalIgnoreCase)
+            && message.Length == 14
+            && int.TryParse(message.AsSpan(2, 12), NumberStyles.None, CultureInfo.InvariantCulture, out var frequency))
+        {
+            description = Localize($"częstotliwość VFO (FD): {FormatFrequency(frequency)}", $"VFO frequency (FD): {FormatFrequency(frequency)}");
+            return true;
+        }
+
+        return false;
     }
 
     private void ApplyAutoInformation(string message)
