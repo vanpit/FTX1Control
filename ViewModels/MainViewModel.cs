@@ -16,6 +16,8 @@ using FTX1Control.Services;
 using System.IO;
 using System.Globalization;
 using System.Reflection;
+using System.IO.Ports;
+using System.Text.Json;
 
 namespace FTX1Control.ViewModels;
 
@@ -75,14 +77,24 @@ public partial class MainViewModel : ViewModelBase
     }
 
     private readonly CatSerialConnection _cat = new();
+    private readonly ConnectionSettingsStore _connectionSettingsStore = ConnectionSettingsStore.CreateDefault();
+    private ConnectionSettings? _savedConnectionSettings;
     private readonly Queue<string> _catLogLines = new();
     private readonly object _catLogFileSync = new();
     private string? _catLogFilePath;
     private CancellationTokenSource? _transmitMeterPollingCancellation;
+    private CancellationTokenSource? _transmitMeterRequestCancellation;
     private Task? _transmitMeterPollingTask;
     private CancellationTokenSource? _funcKnobPollingCancellation;
     private Task? _funcKnobPollingTask;
     private readonly SemaphoreSlim _dLevelOperation = new(1, 1);
+    private readonly SemaphoreSlim _catOperation = new(1, 1);
+    private readonly SemaphoreSlim _meterSelectionOperation = new(1, 1);
+    private CancellationTokenSource? _catOperationsCancellation;
+    private Task? _disconnectTask;
+    private string? _catTimeoutMessage;
+    private bool _isDisposed;
+    private bool _isDisconnecting;
     private TaskCompletionSource<bool>? _meterDetectorReadCompletion;
     private bool _requestedPeakMeterDetector;
     private int? _mainMeterCode;
@@ -293,7 +305,7 @@ public partial class MainViewModel : ViewModelBase
 
     public string StatusMessage
     {
-        get => LanguageService.TranslateStatus(_statusMessage);
+        get => LanguageService.TranslateStatus(_catTimeoutMessage ?? _statusMessage);
         set
         {
             if (_statusMessage == value)
@@ -305,6 +317,10 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged();
         }
     }
+
+    public IBrush StatusMessageBrush => _catTimeoutMessage is null
+        ? new ImmutableSolidColorBrush(Color.FromRgb(195, 206, 202))
+        : new ImmutableSolidColorBrush(Color.FromRgb(231, 76, 60));
 
     public string CatLogFileError
     {
@@ -323,7 +339,7 @@ public partial class MainViewModel : ViewModelBase
     }
 
     public string ConnectButtonText => IsConnecting
-        ? LanguageService.TranslateStatus("Łączenie...")
+        ? LanguageService.TranslateStatus(_isDisconnecting ? "Rozłączanie..." : "Łączenie...")
         : IsConnected
             ? LanguageService.TranslateStatus("Rozłącz")
             : LanguageService.TranslateStatus("Połącz");
@@ -408,7 +424,21 @@ public partial class MainViewModel : ViewModelBase
         MainMeters = CreateMeterOptions(0);
         SubMeters = CreateMeterOptions(1);
         SelectedFuncKnobOption = null;
-        RefreshComPorts();
+        try
+        {
+            _savedConnectionSettings = _connectionSettingsStore.Load();
+            if (_savedConnectionSettings is not null
+                && !BaudRates.Contains(_savedConnectionSettings.BaudRate.ToString(CultureInfo.InvariantCulture)))
+            {
+                throw new InvalidDataException("Unsupported saved baud rate.");
+            }
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException or SecurityException or JsonException)
+        {
+            Trace.TraceError($"Unable to read the saved connection settings: {exception}");
+            _savedConnectionSettings = null;
+        }
+        RefreshInitialComPorts();
     }
 
     partial void OnSelectedLanguageIndexChanged(int value)
@@ -546,31 +576,104 @@ public partial class MainViewModel : ViewModelBase
     {
         if (IsConnected)
         {
-            await StopTransmitMeterPollingAsync();
-            await StopFuncKnobPollingAsync();
+            await BeginDisconnectAsync();
+            return;
+        }
+
+        await ConnectAsync();
+    }
+
+    private Task BeginDisconnectAsync()
+    {
+        if (_disconnectTask is not null)
+        {
+            return _disconnectTask;
+        }
+
+        _isDisconnecting = true;
+        IsConnecting = true;
+        _disconnectTask = DisconnectAsync();
+        return _disconnectTask;
+    }
+
+    private async Task DisconnectAsync()
+    {
+        var disconnectErrors = new List<string>();
+        try
+        {
+            try
+            {
+                _catOperationsCancellation?.Cancel();
+                await StopTransmitMeterPollingAsync();
+                await StopFuncKnobPollingAsync();
+                await _catOperation.WaitAsync();
+                _catOperation.Release();
+            }
+            catch (Exception exception)
+            {
+                Trace.TraceError($"Unable to stop CAT operations: {exception}");
+                disconnectErrors.Add(exception.Message);
+            }
+
+            _catOperationsCancellation?.Dispose();
+            _catOperationsCancellation = null;
             _cat.AutoInformationReceived -= OnAutoInformationReceived;
             _cat.AutoInformationError -= OnAutoInformationError;
-            Exception? disconnectException = null;
             try
             {
                 _cat.Disconnect();
             }
             catch (Exception exception)
             {
-                disconnectException = exception;
+                Trace.TraceError($"Unable to close the CAT port: {exception}");
+                disconnectErrors.Add(exception.Message);
             }
 
             _cat.CatFrameLogged -= OnCatFrameLogged;
             ClearRadioReadings();
             IsConnected = false;
-            ConnectionStatus = "NIEPOŁĄCZONY";
-            StatusMessage = disconnectException is null
-                ? string.Empty
-                : $"Port został zamknięty, ale nie udało się wyłączyć Auto Information: {disconnectException.Message}";
-            return;
+            if (_catTimeoutMessage is not null)
+            {
+                ConnectionStatus = "BŁĄD POŁĄCZENIA";
+                if (disconnectErrors.Count > 0)
+                {
+                    SetCatTimeoutMessage($"{_catTimeoutMessage} Błąd zamykania portu: {string.Join(" ", disconnectErrors)}");
+                }
+            }
+            else
+            {
+                ConnectionStatus = "NIEPOŁĄCZONY";
+                StatusMessage = disconnectErrors.Count == 0
+                    ? string.Empty
+                    : $"Nie udało się prawidłowo rozłączyć: {string.Join(" ", disconnectErrors)}";
+            }
         }
+        finally
+        {
+            _isDisconnecting = false;
+            IsConnecting = false;
+        }
+    }
 
-        await ConnectAsync();
+    private void SetCatTimeoutMessage(string? message)
+    {
+        _catTimeoutMessage = message;
+        OnPropertyChanged(nameof(StatusMessage));
+        OnPropertyChanged(nameof(StatusMessageBrush));
+    }
+
+    private async Task DisconnectAfterTimeoutAsync(TimeoutException exception)
+    {
+        SetCatTimeoutMessage($"Utracono połączenie z radiem: {exception.Message}");
+        try
+        {
+            await BeginDisconnectAsync();
+        }
+        catch (Exception disconnectException)
+        {
+            Trace.TraceError($"Unable to disconnect after a CAT timeout: {disconnectException}");
+            SetCatTimeoutMessage($"{_catTimeoutMessage} Błąd zamykania portu: {disconnectException.Message}");
+        }
     }
 
     public async Task TryConnectOnStartupAsync()
@@ -580,11 +683,46 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        RefreshComPorts();
+        RefreshInitialComPorts();
         if (SelectedComPort is not null)
         {
             await ConnectAsync(retryOnStartup: true);
         }
+    }
+
+    private void RefreshInitialComPorts()
+    {
+        var wasUsingSavedPort = _savedConnectionSettings is not null
+            && string.Equals(SelectedComPort?.PortName, _savedConnectionSettings.PortName, StringComparison.OrdinalIgnoreCase);
+        if (_savedConnectionSettings is not null && OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var portName = SerialPort.GetPortNames().FirstOrDefault(port =>
+                    string.Equals(port, _savedConnectionSettings.PortName, StringComparison.OrdinalIgnoreCase));
+                if (portName is not null)
+                {
+                    AvailableComPorts.Clear();
+                    var port = new ComPortOption(portName, portName, false);
+                    AvailableComPorts.Add(port);
+                    SelectedComPort = port;
+                    SelectedBaudRate = _savedConnectionSettings.BaudRate.ToString(CultureInfo.InvariantCulture);
+                    return;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or SecurityException
+                or PlatformNotSupportedException or System.ComponentModel.Win32Exception)
+            {
+                Trace.TraceError($"Unable to check the saved COM port: {exception}");
+            }
+        }
+
+        if (wasUsingSavedPort)
+        {
+            SelectedComPort = null;
+            SelectedBaudRate = "4800";
+        }
+        RefreshComPorts();
     }
 
     public void RefreshComPorts()
@@ -639,6 +777,8 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
+        _disconnectTask = null;
+        SetCatTimeoutMessage(null);
         IsConnecting = true;
         var maximumAttempts = retryOnStartup ? 3 : 1;
         try
@@ -677,7 +817,7 @@ public partial class MainViewModel : ViewModelBase
                         {
                             isPeakMeterDetector = _cat.ReadPeakMeterDetector();
                         }
-                        catch (Exception exception) when (exception is IOException or InvalidDataException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+                        catch (Exception exception) when (exception is InvalidDataException)
                         {
                             meterDetectorError = exception.Message;
                         }
@@ -686,7 +826,7 @@ public partial class MainViewModel : ViewModelBase
                         {
                             rfPowerSettings = _cat.ReadRfPowerSettings();
                         }
-                        catch (Exception exception) when (exception is IOException or InvalidDataException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+                        catch (Exception exception) when (exception is InvalidDataException)
                         {
                             rfPowerError = exception.Message;
                         }
@@ -695,7 +835,7 @@ public partial class MainViewModel : ViewModelBase
                         {
                             funcKnobCode = _cat.ReadFuncKnobFunction();
                         }
-                        catch (Exception exception) when (exception is IOException or InvalidDataException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+                        catch (Exception exception) when (exception is InvalidDataException)
                         {
                             funcKnobError = exception.Message;
                         }
@@ -736,6 +876,7 @@ public partial class MainViewModel : ViewModelBase
                     _cat.AutoInformationReceived += OnAutoInformationReceived;
                     _cat.AutoInformationError += OnAutoInformationError;
                     _cat.EnableAutoInformation();
+                    _catOperationsCancellation = new CancellationTokenSource();
                     IsConnected = true;
                     ConnectionStatus = "POŁĄCZONY";
                     var connectionErrors = new List<string>();
@@ -758,12 +899,27 @@ public partial class MainViewModel : ViewModelBase
                     StatusMessage = string.Join(" ", connectionErrors);
                     StartTransmitMeterPolling();
                     StartFuncKnobPolling();
-                    RequestDLevelForCurrentFrequency();
-                    RequestNoiseControlLevelsForCurrentFrequency();
+                    _ = RequestDLevelForCurrentFrequencyAsync();
+                    _ = RequestNoiseControlLevelsForCurrentFrequencyAsync();
+                    try
+                    {
+                        var settings = new ConnectionSettings(portName, baudRate);
+                        _connectionSettingsStore.Save(settings);
+                        _savedConnectionSettings = settings;
+                    }
+                    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or SecurityException)
+                    {
+                        Trace.TraceError($"Unable to save the connection settings: {exception}");
+                        StatusMessage = string.Join(" ", new[] { _statusMessage, $"Nie udało się zapisać ustawień połączenia: {exception.Message}" }
+                            .Where(message => !string.IsNullOrEmpty(message)));
+                    }
                     return;
                 }
                 catch (Exception exception)
                 {
+                    _catOperationsCancellation?.Cancel();
+                    _catOperationsCancellation?.Dispose();
+                    _catOperationsCancellation = null;
                     _cat.AutoInformationReceived -= OnAutoInformationReceived;
                     _cat.AutoInformationError -= OnAutoInformationError;
                     var errorMessage = exception.Message;
@@ -778,6 +934,13 @@ public partial class MainViewModel : ViewModelBase
 
                     _cat.CatFrameLogged -= OnCatFrameLogged;
                     IsConnected = false;
+
+                    if (exception is TimeoutException)
+                    {
+                        ConnectionStatus = "BŁĄD POŁĄCZENIA";
+                        SetCatTimeoutMessage($"Utracono połączenie z radiem: {errorMessage}");
+                        return;
+                    }
 
                     if (attempt < maximumAttempts)
                     {
@@ -799,6 +962,43 @@ public partial class MainViewModel : ViewModelBase
     }
 
     private bool CanToggleConnection() => !IsConnecting && (IsConnected || SelectedComPort is not null);
+
+    private Task RunCatAsync(Action action, CancellationToken cancellationToken = default) =>
+        RunCatAsync(() =>
+        {
+            action();
+            return true;
+        }, cancellationToken);
+
+    private async Task<T> RunCatAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
+    {
+        var cancellation = _catOperationsCancellation
+            ?? throw new InvalidOperationException("Connect to the radio before sending CAT commands.");
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token, cancellationToken);
+        var token = linkedCancellation.Token;
+        await _catOperation.WaitAsync(token);
+        try
+        {
+            return await Task.Run(() =>
+            {
+                token.ThrowIfCancellationRequested();
+                return action();
+            }, token);
+        }
+        catch (TimeoutException exception)
+        {
+            if (!_isDisposed && ReferenceEquals(_catOperationsCancellation, cancellation) && IsConnected)
+            {
+                _ = DisconnectAfterTimeoutAsync(exception);
+            }
+
+            throw;
+        }
+        finally
+        {
+            _catOperation.Release();
+        }
+    }
 
     private void StartTransmitMeterPolling()
     {
@@ -833,13 +1033,16 @@ public partial class MainViewModel : ViewModelBase
                 }
 
                 var requested = Math.Clamp(latest + step, -30m, 30m);
-                _cat.SetDLevel(requested);
+                await RunCatAsync(() => _cat.SetDLevel(requested));
                 DLevel = requested;
             }
             finally
             {
                 _dLevelOperation.Release();
             }
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -852,13 +1055,16 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private void RequestDLevelForCurrentFrequency()
+    private async Task RequestDLevelForCurrentFrequencyAsync()
     {
         try
         {
-            _cat.RequestDLevel();
+            await RunCatAsync(_cat.RequestDLevel);
         }
-        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             DLevel = null;
             StatusMessage = $"Nie udało się odczytać D-LEVEL: {exception.Message}";
@@ -871,20 +1077,23 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private Task DecreaseNoiseBlankerLevelAsync() => ChangeNoiseBlankerLevelAsync(-1);
 
-    private Task ChangeNoiseBlankerLevelAsync(int step)
+    private async Task ChangeNoiseBlankerLevelAsync(int step)
     {
         if (!IsConnected || NoiseBlankerLevel is not int level
             || (step > 0 ? !CanIncreaseNoiseBlankerLevel : !CanDecreaseNoiseBlankerLevel))
         {
-            return Task.CompletedTask;
+            return;
         }
 
         IsNoiseBlankerUpdating = true;
         try
         {
             var requested = Math.Clamp(level + step, 0, 10);
-            _cat.SetNoiseBlankerLevel(requested);
+            await RunCatAsync(() => _cat.SetNoiseBlankerLevel(requested));
             NoiseBlankerLevel = requested;
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -896,7 +1105,6 @@ public partial class MainViewModel : ViewModelBase
             IsNoiseBlankerUpdating = false;
         }
 
-        return Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -905,20 +1113,23 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private Task DecreaseDigitalNoiseReductionLevelAsync() => ChangeDigitalNoiseReductionLevelAsync(-1);
 
-    private Task ChangeDigitalNoiseReductionLevelAsync(int step)
+    private async Task ChangeDigitalNoiseReductionLevelAsync(int step)
     {
         if (!IsConnected || DigitalNoiseReductionLevel is not int level
             || (step > 0 ? !CanIncreaseDigitalNoiseReductionLevel : !CanDecreaseDigitalNoiseReductionLevel))
         {
-            return Task.CompletedTask;
+            return;
         }
 
         IsDigitalNoiseReductionUpdating = true;
         try
         {
             var requested = Math.Clamp(level + step, 0, 10);
-            _cat.SetDigitalNoiseReductionLevel(requested);
+            await RunCatAsync(() => _cat.SetDigitalNoiseReductionLevel(requested));
             DigitalNoiseReductionLevel = requested;
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -930,16 +1141,19 @@ public partial class MainViewModel : ViewModelBase
             IsDigitalNoiseReductionUpdating = false;
         }
 
-        return Task.CompletedTask;
     }
 
-    private void RequestNoiseControlLevelsForCurrentFrequency()
+    private async Task RequestNoiseControlLevelsForCurrentFrequencyAsync()
     {
         try
         {
-            _cat.RequestNoiseBlankerLevel();
+            await RunCatAsync(_cat.RequestNoiseBlankerLevel);
         }
-        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             NoiseBlankerLevel = null;
             StatusMessage = $"Nie udało się odczytać poziomu NB: {exception.Message}";
@@ -947,9 +1161,12 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            _cat.RequestDigitalNoiseReductionLevel();
+            await RunCatAsync(_cat.RequestDigitalNoiseReductionLevel);
         }
-        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             DigitalNoiseReductionLevel = null;
             StatusMessage = $"Nie udało się odczytać poziomu DNR: {exception.Message}";
@@ -965,13 +1182,35 @@ public partial class MainViewModel : ViewModelBase
                 cancellationToken.ThrowIfCancellationRequested();
                 if (IsTransmitting)
                 {
-                    await Task.Run(_cat.RequestTransmitMeterReadings, cancellationToken);
+                    using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    _transmitMeterRequestCancellation = requestCancellation;
+                    try
+                    {
+                        foreach (var meterCode in new[] { 4, 5, 6 })
+                        {
+                            if (!IsTransmitting)
+                            {
+                                break;
+                            }
+
+                            await RunCatAsync(() => _cat.RequestTransmitMeterReading(meterCode, requestCancellation.Token),
+                                requestCancellation.Token);
+                        }
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                    }
+                    finally
+                    {
+                        _transmitMeterRequestCancellation = null;
+                    }
                 }
 
                 await Task.Delay(500, cancellationToken);
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested
+            || _catOperationsCancellation?.IsCancellationRequested == true)
         {
         }
         catch (Exception) when (cancellationToken.IsCancellationRequested)
@@ -1022,20 +1261,16 @@ public partial class MainViewModel : ViewModelBase
             {
                 await Task.Delay(5000, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
-                await Task.Run(() =>
+                var functionCode = await RunCatAsync(_cat.ReadFuncKnobFunction, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (IsConnected)
                 {
-                    var functionCode = _cat.ReadFuncKnobFunction();
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        if (IsConnected)
-                        {
-                            ApplyFuncKnobFromRadio(functionCode);
-                        }
-                    });
-                }, cancellationToken);
+                    ApplyFuncKnobFromRadio(functionCode);
+                }
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested
+            || _catOperationsCancellation?.IsCancellationRequested == true)
         {
         }
         catch (Exception exception)
@@ -1118,7 +1353,7 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private void SetFuncKnobOption(string? optionName)
+    private async void SetFuncKnobOption(string? optionName)
     {
         if (_isApplyingFuncKnobFromRadio || !IsConnected || optionName is null)
         {
@@ -1146,9 +1381,12 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            _cat.SetFuncKnobFunction(code);
+            await RunCatAsync(() => _cat.SetFuncKnobFunction(code));
             _funcKnobCode = code;
             StatusMessage = string.Empty;
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -1882,10 +2120,10 @@ public partial class MainViewModel : ViewModelBase
         UpdateRfPowerContext();
         if (frequencyChanged && IsConnected)
         {
-            RequestDLevelForCurrentFrequency();
+            _ = RequestDLevelForCurrentFrequencyAsync();
             if (vfo == 0)
             {
-                RequestNoiseControlLevelsForCurrentFrequency();
+                _ = RequestNoiseControlLevelsForCurrentFrequencyAsync();
             }
         }
     }
@@ -2148,7 +2386,7 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private void SelectPinnedFrequency(int vfo, int frequencyHz, char modeCode)
+    private async void SelectPinnedFrequency(int vfo, int frequencyHz, char modeCode)
     {
         if (!IsConnected)
         {
@@ -2157,7 +2395,10 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            _cat.SetFrequencyAndMode(vfo, frequencyHz, modeCode);
+            await RunCatAsync(() => _cat.SetFrequencyAndMode(vfo, frequencyHz, modeCode));
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
         {
@@ -2424,13 +2665,13 @@ public partial class MainViewModel : ViewModelBase
         {
             var completion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             _rfPowerReadCompletion = completion;
-            _cat.RequestRfPower();
+            await RunCatAsync(_cat.RequestRfPower, cancellation.Token);
             await completion.Task.WaitAsync(TimeSpan.FromSeconds(2), cancellation.Token);
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
         }
-        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             StatusMessage = $"Nie udało się odczytać mocy RF: {exception.Message}";
         }
@@ -2477,18 +2718,21 @@ public partial class MainViewModel : ViewModelBase
 
             var completion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             _rfPowerReadCompletion = completion;
-            _cat.SetRfPower(watts);
-            _cat.RequestRfPower();
+            await RunCatAsync(() =>
+            {
+                _cat.SetRfPower(watts);
+                _cat.RequestRfPower();
+            }, cancellation.Token);
             var actual = await completion.Task.WaitAsync(TimeSpan.FromSeconds(2), cancellation.Token);
             if (actual != watts)
             {
                 StatusMessage = $"Radio ustawiło {actual} W zamiast żądanych {watts} W.";
             }
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
         }
-        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             StatusMessage = $"Nie udało się potwierdzić mocy RF: {exception.Message}";
         }
@@ -2518,7 +2762,7 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private void SendAudioGain(int vfo, double level)
+    private async void SendAudioGain(int vfo, double level)
     {
         if (_isApplyingRadioAudioGain || !IsConnected)
         {
@@ -2527,7 +2771,10 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            _cat.SetAudioGain(vfo, Math.Clamp((int)Math.Round(level, MidpointRounding.AwayFromZero), 0, 255));
+            await RunCatAsync(() => _cat.SetAudioGain(vfo, Math.Clamp((int)Math.Round(level, MidpointRounding.AwayFromZero), 0, 255)));
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception exception)
         {
@@ -2555,14 +2802,17 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             IsPeakMeterDetector = null;
-            _cat.SetPeakMeterDetector(isPeak);
-            _cat.RequestMeterDetector();
+            await RunCatAsync(() =>
+            {
+                _cat.SetPeakMeterDetector(isPeak);
+                _cat.RequestMeterDetector();
+            });
             await completion.Task.WaitAsync(TimeSpan.FromSeconds(2));
         }
-        catch (OperationCanceledException) when (completion.Task.IsCanceled)
+        catch (OperationCanceledException)
         {
         }
-        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             StatusMessage = $"Nie udało się potwierdzić trybu AVG/PEAK: {exception.Message}";
         }
@@ -2578,12 +2828,15 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand(CanExecute = nameof(CanTuneAntenna))]
-    private void StartAntennaTuning()
+    private async Task StartAntennaTuningAsync()
     {
         try
         {
-            _cat.StartAntennaTuning();
+            await RunCatAsync(_cat.StartAntennaTuning);
             StatusMessage = string.Empty;
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
         {
@@ -2640,19 +2893,38 @@ public partial class MainViewModel : ViewModelBase
         return meters;
     }
 
-    private void SelectMeter(int vfo, int meterCode)
+    private async void SelectMeter(int vfo, int meterCode)
     {
+        var cancellation = _catOperationsCancellation;
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        var cancellationToken = cancellation.Token;
         try
         {
-            var mainMeter = vfo == 0 ? meterCode : _mainMeterCode
-                ?? throw new InvalidOperationException("MAIN meter setting is not available.");
-            var subMeter = vfo == 1 ? meterCode : _subMeterCode
-                ?? throw new InvalidOperationException("SUB meter setting is not available.");
-            _cat.SetMeters(mainMeter, subMeter);
-            _mainMeterCode = mainMeter;
-            _subMeterCode = subMeter;
+            await _meterSelectionOperation.WaitAsync(cancellationToken);
+            try
+            {
+                var mainMeter = vfo == 0 ? meterCode : _mainMeterCode
+                    ?? throw new InvalidOperationException("MAIN meter setting is not available.");
+                var subMeter = vfo == 1 ? meterCode : _subMeterCode
+                    ?? throw new InvalidOperationException("SUB meter setting is not available.");
+                await RunCatAsync(() => _cat.SetMeters(mainMeter, subMeter), cancellationToken);
+                _mainMeterCode = mainMeter;
+                _subMeterCode = subMeter;
 
-            StatusMessage = string.Empty;
+                StatusMessage = string.Empty;
+            }
+            finally
+            {
+                _meterSelectionOperation.Release();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch (Exception exception)
         {
@@ -2745,6 +3017,11 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnIsTransmittingChanged(bool value)
     {
+        if (!value)
+        {
+            _transmitMeterRequestCancellation?.Cancel();
+        }
+
         OnPropertyChanged(nameof(TransmitStatusText));
         OnPropertyChanged(nameof(TransmitStatusBrush));
         OnPropertyChanged(nameof(IsMainVfoTransmitting));
@@ -2813,10 +3090,12 @@ public partial class MainViewModel : ViewModelBase
 
     public void Dispose()
     {
+        _isDisposed = true;
         CancelRfPowerChange();
         _meterDetectorReadCompletion?.TrySetCanceled();
         _meterDetectorReadCompletion = null;
         _transmitMeterPollingCancellation?.Cancel();
+        _catOperationsCancellation?.Cancel();
         _cat.AutoInformationReceived -= OnAutoInformationReceived;
         _cat.AutoInformationError -= OnAutoInformationError;
         try

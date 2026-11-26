@@ -1,0 +1,174 @@
+using System;
+using System.Collections.Generic;
+using System.IO.Ports;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using FTX1Control.Models;
+
+static void Assert(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
+
+static async Task WaitFor(Func<bool> condition)
+{
+    for (var i = 0; i < 200; i++)
+    {
+        if (condition()) return;
+        await Task.Delay(5);
+    }
+
+    throw new TimeoutException("Test condition was not reached.");
+}
+
+static (CatSerialConnection Connection, SerialPort Port, List<string> Received) Create()
+{
+    var connection = new CatSerialConnection();
+    var received = new List<string>();
+    connection.AutoInformationReceived += value => { lock (received) received.Add(value); };
+    connection.Connect("COM1", 4800);
+    connection.EnableAutoInformation();
+    return (connection, SerialPort.Last, received);
+}
+
+{
+    var (connection, port, received) = Create();
+    using (connection)
+    {
+        var first = Task.Run(connection.RequestDLevel);
+        await WaitFor(() => port.Writes.Contains("SS04;"));
+        var second = Task.Run(connection.RequestNoiseBlankerLevel);
+        var write = Task.Run(() => connection.SetAudioGain(0, 100));
+        await Task.Delay(50);
+        Assert(!port.Writes.Contains("NL0;") && !port.Writes.Contains("AG0100;"),
+            "Another command was sent before the D-LEVEL response.");
+        _ = port.Inject("FA000014074;SS04+01.0;");
+        await first;
+        await WaitFor(() => port.Writes.Contains("NL0;"));
+        var third = Task.Run(connection.RequestDigitalNoiseReductionLevel);
+        await Task.Delay(50);
+        Assert(!port.Writes.Contains("RL0;"), "DNR was queried before the NB response.");
+        _ = port.Inject("NL0005;");
+        await second;
+        await WaitFor(() => port.Writes.Contains("RL0;"));
+        _ = port.Inject("RL005;");
+        await Task.WhenAll(third, write);
+        lock (received)
+        {
+            Assert(received.Contains("FA000014074") && received.Contains("SS04+01.0")
+                && received.Contains("NL0005") && received.Contains("RL005"),
+                "A query or unsolicited response was not dispatched.");
+        }
+    }
+}
+
+{
+    var (connection, port, _) = Create();
+    using (connection)
+    using (var cancellation = new CancellationTokenSource())
+    {
+        var meter = Task.Run(() => connection.RequestTransmitMeterReading(4, cancellation.Token));
+        await WaitFor(() => port.Writes.Contains("RM4;"));
+        cancellation.Cancel();
+        var next = Task.Run(() => connection.SetAudioGain(0, 42));
+        await Task.Delay(50);
+        Assert(!port.Writes.Contains("AG0042;"), "Cancellation released an unanswered request.");
+        _ = port.Inject("RM4001000;");
+        await Task.WhenAll(meter, next);
+        Assert(port.Writes.Contains("AG0042;"), "A command did not continue after the meter response.");
+    }
+}
+
+{
+    var (connection, port, received) = Create();
+    using (connection)
+    {
+        var meter = Task.Run(() => connection.RequestTransmitMeterReading(4, CancellationToken.None));
+        await WaitFor(() => port.Writes.Contains("RM4;"));
+        var function = Task.Run(connection.ReadFuncKnobFunction);
+        _ = port.Inject("RM5002000;");
+        await Task.Delay(50);
+        Assert(!port.Writes.Contains("SF0;") && !meter.IsCompleted, "An unrelated meter response released the query.");
+        _ = port.Inject("RM4001000;");
+        await meter;
+        await WaitFor(() => port.Writes.Contains("SF0;"));
+        _ = port.Inject("SF01;");
+        Assert(await function == 1, "The FUNC query did not receive its response.");
+        lock (received)
+        {
+            Assert(received.Contains("RM4001000") && !received.Contains("RM5002000"), "Unexpected meter dispatch.");
+        }
+    }
+}
+
+{
+    var (connection, port, received) = Create();
+    using (connection)
+    {
+        var detector = Task.Run(connection.RequestMeterDetector);
+        await WaitFor(() => port.Writes.Contains("EX030513;"));
+        var power = Task.Run(connection.RequestRfPower);
+        await Task.Delay(50);
+        Assert(!port.Writes.Contains("PC;"), "Power was queried before the detector response.");
+        _ = port.Inject("EX0305131;");
+        await detector;
+        await WaitFor(() => port.Writes.Contains("PC;"));
+        _ = port.Inject("PC2005;");
+        await power;
+        lock (received)
+        {
+            Assert(received.Contains("EX0305131") && received.Contains("PC2005"), "Readback responses were not dispatched.");
+        }
+    }
+}
+
+{
+    var (connection, port, _) = Create();
+    using (connection)
+    {
+        var request = Task.Run(connection.RequestRfPower);
+        await WaitFor(() => port.Writes.Contains("PC;"));
+        try { await request; throw new InvalidOperationException("Missing response did not time out."); }
+        catch (TimeoutException) { }
+        try { connection.SetAudioGain(0, 10); throw new Exception("A command was sent after a timeout."); }
+        catch (InvalidOperationException) { }
+        connection.Disconnect();
+        Assert(!port.IsOpen, "The serial port remained open after disconnect.");
+        Assert(!port.Writes.Contains("AG0010;") && !port.Writes.Contains("AI0;"),
+            "A command was sent after an unanswered request.");
+        connection.Connect("COM1", 4800);
+        connection.SetAudioGain(0, 10);
+        Assert(SerialPort.Last.Writes.Contains("AG0010;"), "Reconnection did not clear the fault.");
+    }
+}
+
+{
+    var (connection, port, received) = Create();
+    using (connection)
+    {
+        await port.Inject("NL0");
+        var query = Task.Run(connection.ReadFuncKnobFunction);
+        await WaitFor(() => port.Writes.Contains("SF0;"));
+        var notification = port.Inject("005;SF01;");
+        Assert(await query == 1, "The FUNC query returned the wrong value.");
+        await notification;
+        lock (received) Assert(received.Contains("NL0005"), "A fragmented unsolicited response was lost.");
+    }
+}
+
+{
+    var (connection, port, _) = Create();
+    using (connection)
+    {
+        var settings = Task.Run(connection.ReadRfPowerSettings);
+        await WaitFor(() => port.Writes.Contains("PC;"));
+        _ = port.Inject("PC2005;");
+        await WaitFor(() => port.Writes.Contains("EX030705;"));
+        try { await settings; throw new InvalidOperationException("Missing power-limit response did not time out."); }
+        catch (TimeoutException) { }
+        Assert(!port.Writes.Contains("EX030706;"), "The next power-limit query followed a timeout.");
+    }
+}
+
+Console.WriteLine("CAT command sequencing checks passed.");

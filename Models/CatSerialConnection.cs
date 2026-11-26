@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Globalization;
 using System.Diagnostics;
+using System.Threading;
 
 namespace FTX1Control.Models;
 
@@ -15,8 +16,8 @@ public sealed class CatSerialConnection : IDisposable
     private readonly object _sync = new();
     private readonly object _receiveSync = new();
     private readonly StringBuilder _receiveBuffer = new();
-    private readonly HashSet<int> _pendingMeterResponses = new();
     private bool _autoInformationEnabled;
+    private bool _communicationFaulted;
 
     public event Action<string>? AutoInformationReceived;
     public event Action<Exception>? AutoInformationError;
@@ -28,7 +29,7 @@ public sealed class CatSerialConnection : IDisposable
         lock (_receiveSync)
         {
             _receiveBuffer.Clear();
-            _pendingMeterResponses.Clear();
+            _communicationFaulted = false;
         }
 
         var serialPort = new SerialPort(portName, baudRate, Parity.None, 8, StopBits.One)
@@ -145,7 +146,7 @@ public sealed class CatSerialConnection : IDisposable
 
                     limits.Add(item, limit);
                 }
-                catch (Exception exception) when (exception is InvalidDataException or TimeoutException)
+                catch (InvalidDataException exception)
                 {
                     errors.Add($"{command}: {exception.Message}");
                 }
@@ -196,9 +197,7 @@ public sealed class CatSerialConnection : IDisposable
     {
         lock (_sync)
         {
-            var serialPort = GetOpenPort();
-            LogFrame("TX", "PC;");
-            serialPort.Write("PC;");
+            DispatchAutoInformation(Query("PC;"));
         }
     }
 
@@ -206,9 +205,7 @@ public sealed class CatSerialConnection : IDisposable
     {
         lock (_sync)
         {
-            var serialPort = GetOpenPort();
-            LogFrame("TX", "SS04;");
-            serialPort.Write("SS04;");
+            DispatchAutoInformation(Query("SS04;"));
         }
     }
 
@@ -216,9 +213,7 @@ public sealed class CatSerialConnection : IDisposable
     {
         lock (_sync)
         {
-            var serialPort = GetOpenPort();
-            LogFrame("TX", "NL0;");
-            serialPort.Write("NL0;");
+            DispatchAutoInformation(Query("NL0;"));
         }
     }
 
@@ -287,9 +282,7 @@ public sealed class CatSerialConnection : IDisposable
     {
         lock (_sync)
         {
-            var serialPort = GetOpenPort();
-            LogFrame("TX", "RL0;");
-            serialPort.Write("RL0;");
+            DispatchAutoInformation(Query("RL0;"));
         }
     }
 
@@ -398,9 +391,7 @@ public sealed class CatSerialConnection : IDisposable
     {
         lock (_sync)
         {
-            var serialPort = GetOpenPort();
-            LogFrame("TX", "EX030513;");
-            serialPort.Write("EX030513;");
+            DispatchAutoInformation(Query("EX030513;"));
         }
     }
 
@@ -440,35 +431,23 @@ public sealed class CatSerialConnection : IDisposable
         }
     }
 
-    public void RequestTransmitMeterReadings()
+    public void RequestTransmitMeterReading(int meterCode, CancellationToken cancellationToken)
     {
+        if (meterCode is not (4 or 5 or 6))
+        {
+            throw new ArgumentOutOfRangeException(nameof(meterCode));
+        }
+
         lock (_sync)
         {
-            var serialPort = GetOpenPort();
-            lock (_receiveSync)
+            cancellationToken.ThrowIfCancellationRequested();
+            var response = Query($"RM{meterCode};");
+            if (!TryGetTransmitMeterCode(response, out var responseCode) || responseCode != meterCode)
             {
-                _pendingMeterResponses.Clear();
-                _pendingMeterResponses.Add(4);
-                _pendingMeterResponses.Add(5);
-                _pendingMeterResponses.Add(6);
+                throw new InvalidDataException($"Unexpected CAT meter response: {response};");
             }
 
-            LogFrame("TX", "RM4;");
-            LogFrame("TX", "RM5;");
-            LogFrame("TX", "RM6;");
-            try
-            {
-                serialPort.Write("RM4;RM5;RM6;");
-            }
-            catch
-            {
-                lock (_receiveSync)
-                {
-                    _pendingMeterResponses.Clear();
-                }
-
-                throw;
-            }
+            AutoInformationReceived?.Invoke(response);
         }
     }
 
@@ -580,7 +559,6 @@ public sealed class CatSerialConnection : IDisposable
     {
         try
         {
-            string data;
             lock (_sync)
             {
                 var serialPort = _serialPort;
@@ -589,45 +567,41 @@ public sealed class CatSerialConnection : IDisposable
                     return;
                 }
 
-                data = serialPort.ReadExisting();
-            }
-
-            if (data.Length == 0)
-            {
-                return;
-            }
-
-            List<string> messages = new();
-            lock (_receiveSync)
-            {
-                _receiveBuffer.Append(data);
-                var separatorIndex = _receiveBuffer.ToString().IndexOf(';');
-                while (separatorIndex >= 0)
+                var data = serialPort.ReadExisting();
+                if (data.Length == 0)
                 {
-                    if (separatorIndex > 256)
+                    return;
+                }
+
+                List<string> messages = new();
+                lock (_receiveSync)
+                {
+                    _receiveBuffer.Append(data);
+                    var separatorIndex = _receiveBuffer.ToString().IndexOf(';');
+                    while (separatorIndex >= 0)
+                    {
+                        if (separatorIndex > 256)
+                        {
+                            _receiveBuffer.Clear();
+                            throw new InvalidDataException("CAT Auto Information frame exceeded the maximum length.");
+                        }
+
+                        messages.Add(_receiveBuffer.ToString(0, separatorIndex).Trim());
+                        _receiveBuffer.Remove(0, separatorIndex + 1);
+                        separatorIndex = _receiveBuffer.ToString().IndexOf(';');
+                    }
+
+                    if (_receiveBuffer.Length > 256)
                     {
                         _receiveBuffer.Clear();
                         throw new InvalidDataException("CAT Auto Information frame exceeded the maximum length.");
                     }
-
-                    messages.Add(_receiveBuffer.ToString(0, separatorIndex).Trim());
-                    _receiveBuffer.Remove(0, separatorIndex + 1);
-                    separatorIndex = _receiveBuffer.ToString().IndexOf(';');
                 }
 
-                if (_receiveBuffer.Length > 256)
+                foreach (var message in messages)
                 {
-                    _receiveBuffer.Clear();
-                    throw new InvalidDataException("CAT Auto Information frame exceeded the maximum length.");
-                }
-            }
-
-            foreach (var message in messages)
-            {
-                LogFrame("RX", $"{message};");
-                if (ShouldDispatchAutoInformation(message))
-                {
-                    AutoInformationReceived?.Invoke(message);
+                    LogFrame("RX", $"{message};");
+                    DispatchAutoInformation(message);
                 }
             }
         }
@@ -640,16 +614,34 @@ public sealed class CatSerialConnection : IDisposable
     private string Query(string command)
     {
         var serialPort = GetOpenPort();
-        LogFrame("TX", command);
-        serialPort.Write(command);
         var originalTimeout = serialPort.ReadTimeout;
         try
         {
+            LogFrame("TX", command);
+            serialPort.Write(command);
             return ReadMatchingResponse(command, remainingMilliseconds =>
             {
                 serialPort.ReadTimeout = remainingMilliseconds;
-                return serialPort.ReadTo(";");
+                var response = serialPort.ReadTo(";");
+                lock (_receiveSync)
+                {
+                    // A synchronous query can finish a frame started by DataReceived.
+                    if (_receiveBuffer.Length == 0)
+                    {
+                        return response;
+                    }
+
+                    var completeResponse = _receiveBuffer.ToString() + response;
+                    _receiveBuffer.Clear();
+                    return completeResponse;
+                }
             }, originalTimeout);
+        }
+        catch (Exception exception) when (exception is TimeoutException or IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            // An unanswered query leaves subsequent responses impossible to correlate reliably.
+            _communicationFaulted = true;
+            throw;
         }
         finally
         {
@@ -689,22 +681,22 @@ public sealed class CatSerialConnection : IDisposable
             {
                 return response;
             }
+
+            if (_autoInformationEnabled)
+            {
+                DispatchAutoInformation(response);
+            }
         }
     }
 
     private void LogFrame(string direction, string frame) =>
         CatFrameLogged?.Invoke($"[{direction}] {frame}");
 
-    private bool ShouldDispatchAutoInformation(string message)
+    private void DispatchAutoInformation(string message)
     {
-        if (!TryGetTransmitMeterCode(message, out var meterCode))
+        if (!TryGetTransmitMeterCode(message, out _))
         {
-            return true;
-        }
-
-        lock (_receiveSync)
-        {
-            return _pendingMeterResponses.Remove(meterCode);
+            AutoInformationReceived?.Invoke(message);
         }
     }
 
@@ -727,6 +719,11 @@ public sealed class CatSerialConnection : IDisposable
 
     private SerialPort GetOpenPort()
     {
+        if (_communicationFaulted)
+        {
+            throw new InvalidOperationException("Brak odpowiedzi CAT. Rozłącz i połącz urządzenie ponownie.");
+        }
+
         if (_serialPort?.IsOpen != true)
         {
             throw new InvalidOperationException("Connect to the radio before sending CAT commands.");
@@ -747,17 +744,12 @@ public sealed class CatSerialConnection : IDisposable
             var serialPort = _serialPort;
             _serialPort = null;
             serialPort.DataReceived -= OnDataReceived;
-            lock (_receiveSync)
-            {
-                _pendingMeterResponses.Clear();
-            }
-
             var disableAutoInformation = _autoInformationEnabled;
             _autoInformationEnabled = false;
 
             try
             {
-                if (disableAutoInformation && serialPort.IsOpen)
+                if (disableAutoInformation && !_communicationFaulted && serialPort.IsOpen)
                 {
                     LogFrame("TX", "AI0;");
                     serialPort.Write("AI0;");

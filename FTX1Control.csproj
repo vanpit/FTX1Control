@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\ftx1-radio.ico</ApplicationIcon>
-    <AppVersionPrefix Condition="'$(AppVersionPrefix)' == ''">0.13</AppVersionPrefix>
+    <AppVersionPrefix Condition="'$(AppVersionPrefix)' == ''">0.14</AppVersionPrefix>
     <AppBuildTimestamp>$([System.DateTime]::UtcNow.ToString('yyyyMMddHHmmssfff'))</AppBuildTimestamp>
   </PropertyGroup>
 
@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Tests\**\*.cs" />
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>

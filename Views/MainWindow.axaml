@@ -291,7 +291,7 @@
                 <Grid RowDefinitions="Auto,Auto,56" RowSpacing="8">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                         <TextBlock Text="{DynamicResource CatStatus}" FontSize="10" FontWeight="Bold" Foreground="#D59A42" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="#C3CECA" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="{Binding StatusMessageBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                         <ToggleButton Grid.Column="2" Classes="auto-scroll" IsChecked="{Binding IsCatLogAutoScroll}" Content="{Binding CatLogAutoScrollButtonText}" VerticalAlignment="Center" />
                     </Grid>
                     <TextBlock Grid.Row="1" Text="{Binding CatLogFileError}" IsVisible="{Binding HasCatLogFileError}" FontSize="12" Foreground="#E74C3C" TextWrapping="Wrap" />
