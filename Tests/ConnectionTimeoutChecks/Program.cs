@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using FTX1Control.Models;
 using FTX1Control.Services;
 using FTX1Control.ViewModels;
 
@@ -60,6 +61,10 @@ try
     Assert(viewModel.StatusMessage.StartsWith("No Silicon Labs", StringComparison.Ordinal)
         && ((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(231, 76, 60),
         "The translated missing port message is not red.");
+    var identificationError = new UnsupportedRadioException("ID1234").Message;
+    Assert(LanguageService.TranslateStatus(identificationError) ==
+        "Incorrect radio identification: ID1234; Expected ID0840.",
+        "The identification error was not translated.");
     viewModel.StatusMessage = "Wybierz wykryty port COM Silicon Labs.";
     Assert(((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(195, 206, 202),
         "An informational message did not restore the normal color.");

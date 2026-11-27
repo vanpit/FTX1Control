@@ -9,6 +9,14 @@ using System.Threading;
 
 namespace FTX1Control.Models;
 
+public sealed class UnsupportedRadioException : Exception
+{
+    public UnsupportedRadioException(string identification)
+        : base($"Nieprawidłowy identyfikator radia: {identification}; Oczekiwano ID0840.")
+    {
+    }
+}
+
 public sealed class CatSerialConnection : IDisposable
 {
     private SerialPort? _serialPort;
@@ -67,6 +75,18 @@ public sealed class CatSerialConnection : IDisposable
             }
 
             return (mainMeter, subMeter);
+        }
+    }
+
+    public void VerifyRadioIdentification()
+    {
+        lock (_sync)
+        {
+            var response = Query("ID;");
+            if (!string.Equals(response, "ID0840", StringComparison.Ordinal))
+            {
+                throw new UnsupportedRadioException(response);
+            }
         }
     }
 

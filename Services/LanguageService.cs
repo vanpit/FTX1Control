@@ -94,6 +94,8 @@ public static class LanguageService
         ("Nie udało się odczytać mocy SPA-1: ", "Failed to read SPA-1 power: "),
         ("Nie udało się odczytać niektórych limitów mocy: ", "Some power limits could not be read: "),
         ("Nie udało się połączyć: ", "Failed to connect: "),
+        ("Nieprawidłowy identyfikator radia: ", "Incorrect radio identification: "),
+        ("Oczekiwano ID0840.", "Expected ID0840."),
         ("Utracono połączenie z radiem: ", "Lost connection to the radio: "),
         ("Nie udało się prawidłowo rozłączyć: ", "Failed to disconnect cleanly: "),
         ("Brak odpowiedzi CAT. Rozłącz i połącz urządzenie ponownie.", "No CAT response. Disconnect and reconnect the device."),

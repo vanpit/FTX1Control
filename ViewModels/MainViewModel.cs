@@ -967,6 +967,7 @@ public partial class MainViewModel : ViewModelBase
                     var connectionReadings = await Task.Run(() =>
                     {
                         _cat.Connect(portName, baudRate);
+                        _cat.VerifyRadioIdentification();
                         var meters = _cat.ReadMeters();
                         var readings = _cat.ReadRadioState();
                         var transmitVfo = _cat.ReadTransmitVfo();
@@ -1103,6 +1104,13 @@ public partial class MainViewModel : ViewModelBase
                     {
                         ConnectionStatus = "BŁĄD POŁĄCZENIA";
                         SetCatTimeoutMessage($"Utracono połączenie z radiem: {errorMessage}");
+                        return;
+                    }
+
+                    if (exception is UnsupportedRadioException)
+                    {
+                        ConnectionStatus = "BŁĄD POŁĄCZENIA";
+                        SetStatusError(errorMessage);
                         return;
                     }
 

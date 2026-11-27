@@ -33,6 +33,43 @@ static (CatSerialConnection Connection, SerialPort Port, List<string> Received) 
 }
 
 {
+    using var connection = new CatSerialConnection();
+    var frames = new List<string>();
+    connection.CatFrameLogged += frames.Add;
+    connection.Connect("COM1", 4800);
+    var port = SerialPort.Last;
+    var identification = Task.Run(connection.VerifyRadioIdentification);
+    await WaitFor(() => port.Writes.Contains("ID;"));
+    await port.Inject("ID08");
+    Assert(!identification.IsCompleted, "An incomplete identification was accepted.");
+    await port.Inject("40;");
+    await identification;
+    Assert(frames.Contains("[TX] ID;") && frames.Contains("[RX] ID0840;"),
+        "The identification exchange was not logged.");
+}
+
+foreach (var response in new[] { "ID1234", "ID084", "ID08400" })
+{
+    using var connection = new CatSerialConnection();
+    connection.Connect("COM1", 4800);
+    var port = SerialPort.Last;
+    var identification = Task.Run(connection.VerifyRadioIdentification);
+    await WaitFor(() => port.Writes.Contains("ID;"));
+    await port.Inject(response + ";");
+    try
+    {
+        await identification;
+        throw new InvalidOperationException("An incorrect identification was accepted.");
+    }
+    catch (UnsupportedRadioException exception)
+    {
+        Assert(exception.Message.Contains(response, StringComparison.Ordinal)
+            && exception.Message.Contains("ID0840", StringComparison.Ordinal),
+            "The identification error did not include both actual and expected IDs.");
+    }
+}
+
+{
     var (connection, port, received) = Create();
     using (connection)
     {
