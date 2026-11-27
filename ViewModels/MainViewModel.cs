@@ -286,6 +286,7 @@ public partial class MainViewModel : ViewModelBase
     };
 
     public event Action? CatLogOldestLineRemoved;
+    public event Action<string>? CatLogLineAdded;
 
     public string ConnectionStatus
     {
@@ -1412,6 +1413,7 @@ public partial class MainViewModel : ViewModelBase
                     CatLogOldestLineRemoved?.Invoke();
                 }
 
+                CatLogLineAdded?.Invoke(line);
                 CatLog = string.Join(Environment.NewLine, _catLogLines);
             });
         }

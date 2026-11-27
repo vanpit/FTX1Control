@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -15,6 +16,7 @@ namespace FTX1Control.Views;
 
 public partial class MainWindow : Window
 {
+    private static readonly IBrush CatLogTransmitBrush = new SolidColorBrush(Color.Parse("#3DB5F0"));
     private static readonly string WindowPositionPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FTX1Control",
@@ -53,6 +55,17 @@ public partial class MainWindow : Window
             {
                 viewModel.PropertyChanged += OnMainViewModelPropertyChanged;
                 viewModel.CatLogOldestLineRemoved += OnCatLogOldestLineRemoved;
+                viewModel.CatLogLineAdded += OnCatLogLineAdded;
+                CatLogText.Inlines!.Clear();
+                if (!string.IsNullOrEmpty(viewModel.CatLog))
+                {
+                    foreach (var line in viewModel.CatLog.Split(new[] { Environment.NewLine }, StringSplitOptions.None))
+                    {
+                        OnCatLogLineAdded(line);
+                    }
+                }
+                UpdateVolumeFill(MainVolumeTrack, MainVolumeFill, viewModel.MainVolumeLevel);
+                UpdateVolumeFill(SubVolumeTrack, SubVolumeFill, viewModel.SubVolumeLevel);
                 await viewModel.TryConnectOnStartupAsync();
             }
         };
@@ -64,6 +77,7 @@ public partial class MainWindow : Window
             {
                 viewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
                 viewModel.CatLogOldestLineRemoved -= OnCatLogOldestLineRemoved;
+                viewModel.CatLogLineAdded -= OnCatLogLineAdded;
                 viewModel.Dispose();
             }
         };
@@ -99,12 +113,12 @@ public partial class MainWindow : Window
         else if (sender is MainViewModel viewModel
             && e.PropertyName == nameof(MainViewModel.MainVolumeLevel))
         {
-            UpdateVolumeFill(MainVolumeFill, viewModel.MainVolumeLevel);
+            UpdateVolumeFill(MainVolumeTrack, MainVolumeFill, viewModel.MainVolumeLevel);
         }
         else if (sender is MainViewModel subViewModel
             && e.PropertyName == nameof(MainViewModel.SubVolumeLevel))
         {
-            UpdateVolumeFill(SubVolumeFill, subViewModel.SubVolumeLevel);
+            UpdateVolumeFill(SubVolumeTrack, SubVolumeFill, subViewModel.SubVolumeLevel);
         }
     }
 
@@ -141,6 +155,39 @@ public partial class MainWindow : Window
         {
             _catLogManualScrollOffset = Math.Max(0, _catLogManualScrollOffset - CatLogText.TextLayout.TextLines[0].Height);
         }
+
+        var inlines = CatLogText.Inlines!;
+        if (inlines.Count == 0 || inlines[0] is not Run first)
+        {
+            return;
+        }
+
+        var removedCharacters = first.Text?.Length ?? 0;
+        var selectionStart = CatLogText.SelectionStart;
+        var selectionEnd = CatLogText.SelectionEnd;
+        inlines.RemoveAt(0);
+        if (inlines.Count > 0 && inlines[0] is Run next
+            && next.Text is string text && text.StartsWith(Environment.NewLine, StringComparison.Ordinal))
+        {
+            removedCharacters += Environment.NewLine.Length;
+            next.Text = text.Substring(Environment.NewLine.Length);
+        }
+
+        CatLogText.SelectionStart = Math.Max(0, selectionStart - removedCharacters);
+        CatLogText.SelectionEnd = Math.Max(0, selectionEnd - removedCharacters);
+    }
+
+    private void OnCatLogLineAdded(string line)
+    {
+        var inlines = CatLogText.Inlines!;
+        var separator = line.IndexOf(' ');
+        var isTransmit = separator >= 0
+            && line.AsSpan(separator + 1).StartsWith("[TX] ", StringComparison.Ordinal);
+        inlines.Add(new Run
+        {
+            Text = (inlines.Count == 0 ? string.Empty : Environment.NewLine) + line,
+            Foreground = isTransmit ? CatLogTransmitBrush : Brushes.White
+        });
     }
 
     private void RestoreCatLogManualScrollPosition()
@@ -238,10 +285,23 @@ public partial class MainWindow : Window
         }
     }
 
-    private static void UpdateVolumeFill(Border volumeFill, double level)
+    private void OnVolumeTrackSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        ((ScaleTransform)volumeFill.RenderTransform!).ScaleY = Math.Clamp(level, 0, 255) / 255;
+        if (DataContext is MainViewModel viewModel)
+        {
+            if (ReferenceEquals(sender, MainVolumeTrack))
+            {
+                UpdateVolumeFill(MainVolumeTrack, MainVolumeFill, viewModel.MainVolumeLevel);
+            }
+            else if (ReferenceEquals(sender, SubVolumeTrack))
+            {
+                UpdateVolumeFill(SubVolumeTrack, SubVolumeFill, viewModel.SubVolumeLevel);
+            }
+        }
     }
+
+    private static void UpdateVolumeFill(Border track, Border fill, double level) =>
+        fill.Height = track.Bounds.Height * Math.Clamp(level, 0, 255) / 255;
 
     private void SetVolumeFromPointer(Border volumeTrack, PointerPressedEventArgs e, bool isMainVfo)
     {
