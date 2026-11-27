@@ -25,6 +25,7 @@ public partial class MainViewModel : ViewModelBase
 {
     private const int MaximumCatLogLines = 300;
     private const int MaximumPinnedFrequencies = 5;
+    private const int FrequencyRefreshDelayMilliseconds = 200;
     private const long VfoSwapDetectionWindowMilliseconds = 1000;
     private static readonly IBrush TransmitIndicatorRedBrush = new ImmutableSolidColorBrush(Color.FromRgb(229, 57, 53));
 
@@ -89,6 +90,10 @@ public partial class MainViewModel : ViewModelBase
     private readonly SemaphoreSlim _catOperation = new(1, 1);
     private readonly SemaphoreSlim _meterSelectionOperation = new(1, 1);
     private CancellationTokenSource? _catOperationsCancellation;
+    private CancellationTokenSource? _frequencyRefreshCancellation;
+    private bool _frequencyRefreshDelayPending;
+    private bool _frequencyNoiseRefreshPending;
+    private bool _frequencyRfPowerRefreshPending;
     private Task? _disconnectTask;
     private string? _catTimeoutMessage;
     private bool _isDisposed;
@@ -611,6 +616,7 @@ public partial class MainViewModel : ViewModelBase
         {
             try
             {
+                CancelFrequencyRefresh();
                 _catOperationsCancellation?.Cancel();
                 await StopTransmitMeterPollingAsync();
                 await _catOperation.WaitAsync();
@@ -1062,11 +1068,11 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task RequestDLevelForCurrentFrequencyAsync()
+    private async Task RequestDLevelForCurrentFrequencyAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            await RunCatAsync(_cat.RequestDLevel);
+            await RunCatAsync(_cat.RequestDLevel, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -1150,11 +1156,11 @@ public partial class MainViewModel : ViewModelBase
 
     }
 
-    private async Task RequestNoiseControlLevelsForCurrentFrequencyAsync()
+    private async Task RequestNoiseControlLevelsForCurrentFrequencyAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            await RunCatAsync(_cat.RequestNoiseBlankerLevel);
+            await RunCatAsync(_cat.RequestNoiseBlankerLevel, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -1168,7 +1174,7 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            await RunCatAsync(_cat.RequestDigitalNoiseReductionLevel);
+            await RunCatAsync(_cat.RequestDigitalNoiseReductionLevel, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -1991,6 +1997,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void ClearRadioReadings()
     {
+        CancelFrequencyRefresh();
         _meterDetectorReadCompletion?.TrySetCanceled();
         _meterDetectorReadCompletion = null;
         CancelRfPowerChange();
@@ -2068,15 +2075,77 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(CanPinSubFrequency));
         }
 
-        UpdateRfPowerContext();
         if (frequencyChanged && IsConnected)
         {
-            _ = RequestDLevelForCurrentFrequencyAsync();
-            if (vfo == 0)
-            {
-                _ = RequestNoiseControlLevelsForCurrentFrequencyAsync();
-            }
+            ScheduleFrequencyRefresh(vfo);
         }
+        UpdateRfPowerContext();
+    }
+
+    private void ScheduleFrequencyRefresh(int vfo)
+    {
+        _frequencyNoiseRefreshPending |= vfo == 0;
+        var previousCancellation = _frequencyRefreshCancellation;
+        var cancellation = new CancellationTokenSource();
+        _frequencyRefreshCancellation = cancellation;
+        _frequencyRefreshDelayPending = true;
+        previousCancellation?.Cancel();
+        _ = RefreshFrequencyReadingsAsync(cancellation);
+    }
+
+    private async Task RefreshFrequencyReadingsAsync(CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(FrequencyRefreshDelayMilliseconds, cancellation.Token);
+            if (cancellation.IsCancellationRequested || !ReferenceEquals(_frequencyRefreshCancellation, cancellation)
+                || !IsConnected || _isDisconnecting || _isDisposed)
+            {
+                return;
+            }
+
+            _frequencyRefreshDelayPending = false;
+            var requests = new List<Task> { RequestDLevelForCurrentFrequencyAsync(cancellation.Token) };
+            if (_frequencyNoiseRefreshPending)
+            {
+                requests.Add(RequestNoiseControlLevelsForCurrentFrequencyAsync(cancellation.Token));
+            }
+            if (_frequencyRfPowerRefreshPending
+                && (_rfPowerChangeCancellation is null || _rfPowerChangeCancellation.IsCancellationRequested))
+            {
+                CancelRfPowerChange();
+                var rfCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
+                _rfPowerChangeCancellation = rfCancellation;
+                requests.Add(ReadRfPowerForContextAsync(rfCancellation));
+            }
+
+            await Task.WhenAll(requests);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_frequencyRefreshCancellation, cancellation))
+            {
+                _frequencyRefreshCancellation = null;
+                _frequencyRefreshDelayPending = false;
+                _frequencyNoiseRefreshPending = false;
+                _frequencyRfPowerRefreshPending = false;
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private void CancelFrequencyRefresh()
+    {
+        var cancellation = _frequencyRefreshCancellation;
+        _frequencyRefreshCancellation = null;
+        _frequencyRefreshDelayPending = false;
+        _frequencyNoiseRefreshPending = false;
+        _frequencyRfPowerRefreshPending = false;
+        cancellation?.Cancel();
     }
 
     private void UpdateMode(int vfo, char modeCode, string modeDisplay)
@@ -2556,9 +2625,16 @@ public partial class MainViewModel : ViewModelBase
             CancelRfPowerChange();
             _rfPowerWatts = null;
             RefreshRfPowerControls();
-            var cancellation = new CancellationTokenSource();
-            _rfPowerChangeCancellation = cancellation;
-            _ = ReadRfPowerForContextAsync(cancellation);
+            if (_frequencyRefreshDelayPending)
+            {
+                _frequencyRfPowerRefreshPending = true;
+            }
+            else
+            {
+                var cancellation = new CancellationTokenSource();
+                _rfPowerChangeCancellation = cancellation;
+                _ = ReadRfPowerForContextAsync(cancellation);
+            }
         }
         else
         {
@@ -3042,6 +3118,7 @@ public partial class MainViewModel : ViewModelBase
     public void Dispose()
     {
         _isDisposed = true;
+        CancelFrequencyRefresh();
         CancelRfPowerChange();
         _meterDetectorReadCompletion?.TrySetCanceled();
         _meterDetectorReadCompletion = null;

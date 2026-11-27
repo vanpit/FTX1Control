@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -151,3 +154,76 @@ finally
 }
 
 Console.WriteLine("Connection timeout UI checks passed.");
+
+var frequencyModel = new MainViewModel();
+var frequencyLogPath = (string?)typeof(MainViewModel).GetField("_catLogFilePath", PrivateInstance)!.GetValue(frequencyModel);
+try
+{
+    LanguageService.SetLanguage(0, savePreference: false);
+    var updateFrequency = typeof(MainViewModel).GetMethod("UpdateFrequency", PrivateInstance)!;
+    typeof(MainViewModel).GetMethod("UpdateMode", PrivateInstance)!
+        .Invoke(frequencyModel, new object[] { 0, '2', "USB" });
+    frequencyModel.TransmitVfo = 0;
+    updateFrequency.Invoke(frequencyModel, new object[] { 0, 14000000 });
+    updateFrequency.Invoke(frequencyModel, new object[] { 1, 7100000 });
+    var limits = (Dictionary<int, int>)typeof(MainViewModel).GetField("_rfPowerLimits", PrivateInstance)!.GetValue(frequencyModel)!;
+    limits[5] = 100;
+    limits[6] = 100;
+    typeof(MainViewModel).GetField("_catOperationsCancellation", PrivateInstance)!
+        .SetValue(frequencyModel, new CancellationTokenSource());
+    frequencyModel.IsConnected = true;
+
+    var clock = Stopwatch.StartNew();
+    var readErrors = new ConcurrentQueue<(string Message, long Time)>();
+    frequencyModel.PropertyChanged += (_, e) =>
+    {
+        if (e.PropertyName == nameof(MainViewModel.StatusMessage)
+            && frequencyModel.StatusMessage.StartsWith("Nie udało się odczytać", StringComparison.Ordinal))
+        {
+            readErrors.Enqueue((frequencyModel.StatusMessage, clock.ElapsedMilliseconds));
+        }
+    };
+
+    updateFrequency.Invoke(frequencyModel, new object[] { 0, 50000000 });
+    await Task.Delay(80);
+    Assert(readErrors.IsEmpty, "A frequency read started before the debounce delay.");
+    var lastChange = clock.ElapsedMilliseconds;
+    updateFrequency.Invoke(frequencyModel, new object[] { 1, 7100001 });
+    await Task.Delay(150);
+    Assert(readErrors.IsEmpty, "A second frequency change did not reset the debounce delay.");
+
+    var deadline = Stopwatch.StartNew();
+    while (readErrors.Count < 4 && deadline.Elapsed < TimeSpan.FromSeconds(3))
+    {
+        await Task.Delay(10);
+    }
+
+    var errors = readErrors.ToArray();
+    Assert(errors.Length == 4 && errors.All(error => error.Time - lastChange >= 195),
+        "Debounced frequency reads did not run once after the final change.");
+    Assert(errors.Any(error => error.Message.Contains("D-LEVEL", StringComparison.Ordinal))
+        && errors.Any(error => error.Message.Contains("NB", StringComparison.Ordinal))
+        && errors.Any(error => error.Message.Contains("DNR", StringComparison.Ordinal))
+        && errors.Any(error => error.Message.Contains("mocy RF", StringComparison.Ordinal)),
+        "The MAIN and SUB changes did not retain all required reads.");
+
+    while (typeof(MainViewModel).GetField("_frequencyRefreshCancellation", PrivateInstance)!.GetValue(frequencyModel) is not null
+        && deadline.Elapsed < TimeSpan.FromSeconds(3))
+    {
+        await Task.Delay(10);
+    }
+    updateFrequency.Invoke(frequencyModel, new object[] { 0, 50000001 });
+    var errorCount = readErrors.Count;
+    var disconnect = (Task)typeof(MainViewModel).GetMethod("BeginDisconnectAsync", PrivateInstance)!.Invoke(frequencyModel, null)!;
+    await disconnect.WaitAsync(TimeSpan.FromSeconds(3));
+    await Task.Delay(250);
+    Assert(readErrors.Count == errorCount, "A pending frequency read ran after disconnect.");
+}
+finally
+{
+    frequencyModel.Dispose();
+    LanguageService.SetLanguage(wasEnglish ? 1 : 0, savePreference: false);
+    if (frequencyLogPath is not null && File.Exists(frequencyLogPath)) File.Delete(frequencyLogPath);
+}
+
+Console.WriteLine("Frequency refresh debounce checks passed.");
