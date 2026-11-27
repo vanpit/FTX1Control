@@ -446,7 +446,14 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <Border Height="44" Background="#202D36" BorderBrush="#52616E" BorderThickness="1" CornerRadius="4" Padding="12,8">
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Ellipse Width="8" Height="8" Fill="{Binding ConnectionIndicatorBrush}" />
+                        <Viewbox Width="18" Height="18" VerticalAlignment="Center">
+                            <Grid Width="24" Height="24">
+                                <Path Data="M10,13 A5,5 0 0 0 17.07,13 L20.07,10 A5,5 0 0 0 13,2.93 L11.28,4.64 M14,11 A5,5 0 0 0 6.93,11 L3.93,14 A5,5 0 0 0 11,21.07 L12.71,19.36"
+                                      Stroke="{Binding ConnectionIndicatorBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" />
+                                <Path Data="M3,3 L21,21" Stroke="#202D36" StrokeThickness="4.5" StrokeLineCap="Round" IsVisible="{Binding !IsConnected}" />
+                                <Path Data="M3,3 L21,21" Stroke="{Binding ConnectionIndicatorBrush}" StrokeThickness="2" StrokeLineCap="Round" IsVisible="{Binding !IsConnected}" />
+                            </Grid>
+                        </Viewbox>
                         <TextBlock Text="{Binding ConnectionStatus}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>
@@ -629,23 +636,40 @@
         </Border>
 
         <Border Grid.Row="3" Classes="panel" Padding="21,18,18,18">
-            <Grid ColumnDefinitions="*,*,*,*,Auto,Auto,Auto" ColumnSpacing="20" VerticalAlignment="Center">
+            <Grid ColumnDefinitions="Auto,*,*,*,Auto,Auto,Auto" ColumnSpacing="20" VerticalAlignment="Center">
                 <StackPanel Spacing="5" VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource TransmitMetersTitle}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" />
                     <TextBlock Text="{DynamicResource ActiveDuringTx}" FontSize="11" Foreground="#98A8A2" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="{DynamicResource PowerOutputEstimate}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" />
-                    <TextBlock Text="{Binding PowerOutputReading}" FontSize="25" FontWeight="Bold" />
-                </StackPanel>
-                <StackPanel Grid.Column="2" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="{DynamicResource SwrEstimate}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" />
-                    <TextBlock Text="{Binding SwrReading}" Foreground="{Binding SwrIndicatorBrush}" FontSize="25" FontWeight="Bold" />
-                </StackPanel>
-                <StackPanel Grid.Column="3" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="ALC (0-100%)" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" />
-                    <TextBlock Text="{Binding AlcReading}" Foreground="{Binding AlcIndicatorBrush}" FontSize="25" FontWeight="Bold" />
-                </StackPanel>
+                <Grid Grid.Column="1" RowDefinitions="10,22,10,10" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource PowerOutputEstimate}" ToolTip.Tip="{DynamicResource PowerOutputEstimate}"
+                               FontSize="9" LineHeight="10" FontWeight="Bold" Foreground="#98A8A2" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Row="1" Text="{Binding PowerOutputReading}" FontSize="18" LineHeight="22" FontWeight="Bold" TextAlignment="Right" />
+                    <views:TransmitMeterBar Grid.Row="2" Value="{Binding PowerOutputMeterValue}"
+                                            Maximum="{Binding PowerOutputMeterMaximum}" Fill="#00A7EC" />
+                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                        <TextBlock Text="0 W" FontSize="9" LineHeight="10" Foreground="#98A8A2" />
+                        <TextBlock Grid.Column="1" Text="{Binding PowerOutputMeterMaximumReading}" FontSize="9" LineHeight="10" Foreground="#98A8A2" />
+                    </Grid>
+                </Grid>
+                <Grid Grid.Column="2" RowDefinitions="10,22,10,10" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource SwrEstimate}" FontSize="9" LineHeight="10" FontWeight="Bold" Foreground="#98A8A2" />
+                    <TextBlock Grid.Row="1" Text="{Binding SwrReading}" Foreground="{Binding SwrIndicatorBrush}" FontSize="18" LineHeight="22" FontWeight="Bold" TextAlignment="Right" />
+                    <views:TransmitMeterBar Grid.Row="2" IsSwr="True" Value="{Binding SwrMeterValue}" />
+                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                        <TextBlock Text="1.0" FontSize="9" LineHeight="10" Foreground="#98A8A2" />
+                        <TextBlock Grid.Column="1" Text="3.0" FontSize="9" LineHeight="10" Foreground="#98A8A2" />
+                    </Grid>
+                </Grid>
+                <Grid Grid.Column="3" RowDefinitions="10,22,10,10" VerticalAlignment="Center">
+                    <TextBlock Text="ALC (0-100%)" FontSize="9" LineHeight="10" FontWeight="Bold" Foreground="#98A8A2" />
+                    <TextBlock Grid.Row="1" Text="{Binding AlcReading}" Foreground="{Binding AlcIndicatorBrush}" FontSize="18" LineHeight="22" FontWeight="Bold" TextAlignment="Right" />
+                    <views:TransmitMeterBar Grid.Row="2" Value="{Binding AlcMeterValue}" Fill="#00C3D7" />
+                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                        <TextBlock Text="0%" FontSize="9" LineHeight="10" Foreground="#98A8A2" />
+                        <TextBlock Grid.Column="1" Text="100%" FontSize="9" LineHeight="10" Foreground="#98A8A2" />
+                    </Grid>
+                </Grid>
                 <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" IsEnabled="{Binding CanSelectMeterDetector}" VerticalAlignment="Center">
                     <Button Classes="detector" Classes.selected="{Binding IsAverageMeterDetector}" Content="AVG" Command="{Binding SelectAverageMeterDetectorCommand}" />
                     <Button Classes="detector" Classes.selected="{Binding IsPeakMeterDetectorSelected}" Content="PEAK" Command="{Binding SelectPeakMeterDetectorCommand}" />

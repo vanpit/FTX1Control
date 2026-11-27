@@ -26,6 +26,8 @@ public partial class MainViewModel : ViewModelBase
     private const int MaximumCatLogLines = 300;
     private const int MaximumPinnedFrequencies = 5;
     private const int FrequencyRefreshDelayMilliseconds = 200;
+    internal const double SwrWarningThreshold = 1.5;
+    internal const double SwrCriticalThreshold = 2.0;
     private const long VfoSwapDetectionWindowMilliseconds = 1000;
     private static readonly IBrush TransmitIndicatorRedBrush = new ImmutableSolidColorBrush(Color.FromRgb(229, 57, 53));
 
@@ -176,6 +178,9 @@ public partial class MainViewModel : ViewModelBase
     private string _powerOutputReading = "-- W";
 
     [ObservableProperty]
+    private double? _powerOutputMeterValue;
+
+    [ObservableProperty]
     private string _swrReading = "--";
 
     private double _swrValue;
@@ -185,6 +190,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _alcPercent;
+
+    [ObservableProperty]
+    private double? _alcMeterValue;
 
     [ObservableProperty]
     private string _mainFrequencyDisplay = "--";
@@ -401,6 +409,9 @@ public partial class MainViewModel : ViewModelBase
     };
     public string RfPowerReading => _rfPowerWatts is int watts ? $"{watts} W" : "-- W";
     public int RfPowerBarValue => CanSetRfPower && _rfPowerWatts is int watts ? watts : 0;
+    public int PowerOutputMeterMaximum => CanSetRfPower ? MaximumRfPower : 100;
+    public string PowerOutputMeterMaximumReading => $"{PowerOutputMeterMaximum} W";
+    public double? SwrMeterValue => _swrValue >= 1 ? _swrValue : null;
     public string RfPowerOverLimitReading => _rfPowerWatts is int watts && watts > _hfPowerWarningLimit
         ? $"+{watts - _hfPowerWarningLimit} W"
         : string.Empty;
@@ -494,7 +505,7 @@ public partial class MainViewModel : ViewModelBase
     public double SubFrequencyFontSize => TransmitVfo == 1 ? 28 : 22;
     public IBrush ConnectionIndicatorBrush => IsConnected
         ? new SolidColorBrush(Color.FromRgb(182, 214, 108))
-        : new SolidColorBrush(Color.FromRgb(103, 117, 114));
+        : new SolidColorBrush(Color.FromRgb(239, 83, 80));
     public string TransmitStatusText => LanguageService.TranslateStatus(
         IsTransmitting ? "TX - NADAWANIE" : "RX - ODBIÓR");
     public IBrush TransmitStatusBrush => IsTransmitting
@@ -505,9 +516,9 @@ public partial class MainViewModel : ViewModelBase
         : AlcPercent > 50
             ? new SolidColorBrush(Color.FromRgb(213, 154, 66))
             : new SolidColorBrush(Color.FromRgb(233, 239, 237));
-    public IBrush SwrIndicatorBrush => _swrValue > 2.0
+    public IBrush SwrIndicatorBrush => _swrValue > SwrCriticalThreshold
         ? new SolidColorBrush(Color.FromRgb(229, 57, 53))
-        : _swrValue > 1.5
+        : _swrValue > SwrWarningThreshold
             ? new SolidColorBrush(Color.FromRgb(213, 154, 66))
             : new SolidColorBrush(Color.FromRgb(233, 239, 237));
 
@@ -2106,11 +2117,14 @@ public partial class MainViewModel : ViewModelBase
     private void ClearTransmitMeterReadings()
     {
         PowerOutputReading = "-- W";
+        PowerOutputMeterValue = null;
         SwrReading = "--";
         _swrValue = 0;
         OnPropertyChanged(nameof(SwrIndicatorBrush));
+        OnPropertyChanged(nameof(SwrMeterValue));
         AlcReading = "-- %";
         AlcPercent = 0;
+        AlcMeterValue = null;
     }
 
     private void UpdateSwrReading(int raw)
@@ -2118,6 +2132,7 @@ public partial class MainViewModel : ViewModelBase
         _swrValue = ConvertSwrReading(raw);
         SwrReading = $"{_swrValue:0.0}:1";
         OnPropertyChanged(nameof(SwrIndicatorBrush));
+        OnPropertyChanged(nameof(SwrMeterValue));
     }
 
     private void SetTransmitState(bool isTransmitting)
@@ -2135,13 +2150,16 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdatePowerReading(int raw)
     {
-        PowerOutputReading = $"{Math.Round(ConvertPowerReading(raw), MidpointRounding.AwayFromZero):0} W";
+        var watts = ConvertPowerReading(raw);
+        PowerOutputReading = $"{Math.Round(watts, MidpointRounding.AwayFromZero):0} W";
+        PowerOutputMeterValue = watts;
     }
 
     private void UpdateAlcReading(int raw)
     {
         AlcPercent = ConvertAlcReading(raw);
         AlcReading = $"{AlcPercent}%";
+        AlcMeterValue = AlcPercent;
     }
 
     private void ClearRadioReadings()
@@ -2807,6 +2825,8 @@ public partial class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(MaximumRfPower));
         OnPropertyChanged(nameof(CanSetRfPower));
+        OnPropertyChanged(nameof(PowerOutputMeterMaximum));
+        OnPropertyChanged(nameof(PowerOutputMeterMaximumReading));
         OnPropertyChanged(nameof(RfPowerReading));
         OnPropertyChanged(nameof(RfPowerBarValue));
         OnPropertyChanged(nameof(RfPowerOverLimitReading));

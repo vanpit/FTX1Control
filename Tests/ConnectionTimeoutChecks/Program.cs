@@ -31,6 +31,13 @@ var wasEnglish = LanguageService.IsEnglish;
 try
 {
     LanguageService.SetLanguage(0, savePreference: false);
+    var connectionIndicatorChanges = 0;
+    viewModel.PropertyChanged += (_, e) =>
+    {
+        if (e.PropertyName == nameof(MainViewModel.ConnectionIndicatorBrush)) connectionIndicatorChanges++;
+    };
+    Assert(((ISolidColorBrush)viewModel.ConnectionIndicatorBrush).Color == Color.FromRgb(239, 83, 80),
+        "The disconnected indicator is not red.");
     if (viewModel.StatusMessage == "Nie wykryto portu CAT Silicon Labs typu Enhanced ani Standard.")
     {
         Assert(((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(231, 76, 60),
@@ -60,6 +67,8 @@ try
     typeof(MainViewModel).GetField("_catOperationsCancellation", PrivateInstance)!
         .SetValue(viewModel, new CancellationTokenSource());
     viewModel.IsConnected = true;
+    Assert(((ISolidColorBrush)viewModel.ConnectionIndicatorBrush).Color == Color.FromRgb(182, 214, 108)
+        && connectionIndicatorChanges == 1, "The connected indicator did not turn green.");
     var run = typeof(MainViewModel).GetMethods(PrivateInstance)
         .Single(method => method.Name == "RunCatAsync" && !method.IsGenericMethod);
 
@@ -84,6 +93,8 @@ try
     Assert(disconnect is not null, "Timeout did not start disconnecting.");
     await disconnect!.WaitAsync(TimeSpan.FromSeconds(3));
     Assert(!viewModel.IsConnected && !viewModel.IsConnecting, "Timeout did not finish disconnecting.");
+    Assert(((ISolidColorBrush)viewModel.ConnectionIndicatorBrush).Color == Color.FromRgb(239, 83, 80)
+        && connectionIndicatorChanges == 2, "The disconnected indicator did not turn red.");
     Assert(viewModel.ConnectionStatus == "BŁĄD POŁĄCZENIA", "Connection error status is missing.");
     Assert(viewModel.StatusMessage.Contains("Test timeout", StringComparison.Ordinal), "Timeout details are missing.");
     Assert(((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(231, 76, 60), "Timeout status is not red.");
@@ -261,6 +272,55 @@ try
         warningModel.HfPowerWarningLimit = 100;
         typeof(MainViewModel).GetMethod("ClearRadioReadings", PrivateInstance)!.Invoke(warningModel, null);
         Assert(warningModel.RfPowerBarValue == 0, "The power bar was not cleared with the radio readings.");
+    }
+
+    {
+        var meterModel = CreateWarningModel();
+        var updateFrequency = typeof(MainViewModel).GetMethod("UpdateFrequency", PrivateInstance)!;
+        var updateMode = typeof(MainViewModel).GetMethod("UpdateMode", PrivateInstance)!;
+        var updatePower = typeof(MainViewModel).GetMethod("UpdatePowerReading", PrivateInstance)!;
+        var updateSwr = typeof(MainViewModel).GetMethod("UpdateSwrReading", PrivateInstance)!;
+        var updateAlc = typeof(MainViewModel).GetMethod("UpdateAlcReading", PrivateInstance)!;
+        Assert(meterModel.PowerOutputMeterValue is null && meterModel.SwrMeterValue is null
+            && meterModel.AlcMeterValue is null, "Meters should not show markers before readings arrive.");
+        updateFrequency.Invoke(meterModel, new object[] { 0, 14_000_000 });
+        updateMode.Invoke(meterModel, new object[] { 0, 'C', "DATA-U" });
+        meterModel.TransmitVfo = 0;
+        var limits = (Dictionary<int, int>)typeof(MainViewModel)
+            .GetField("_rfPowerLimits", PrivateInstance)!.GetValue(meterModel)!;
+        limits[5] = 30;
+        typeof(MainViewModel).GetMethod("ApplyRfPowerFromRadio", PrivateInstance)!.Invoke(meterModel, new object[] { 20 });
+        meterModel.IsConnected = true;
+        Assert(meterModel.PowerOutputMeterMaximum == 30 && meterModel.PowerOutputMeterMaximumReading == "30 W",
+            "The PO scale did not use the available band power.");
+        updatePower.Invoke(meterModel, new object[] { 97 });
+        Assert(meterModel.PowerOutputMeterValue == 20 && meterModel.PowerOutputReading == "20 W",
+            "The PO marker did not follow the calibrated power reading.");
+        updateSwr.Invoke(meterModel, new object[] { 65 });
+        Assert(meterModel.SwrMeterValue == 1.5
+            && ((ISolidColorBrush)meterModel.SwrIndicatorBrush).Color == Color.FromRgb(233, 239, 237),
+            "SWR 1.5 should remain below the orange threshold.");
+        updateSwr.Invoke(meterModel, new object[] { 66 });
+        Assert(meterModel.SwrMeterValue > 1.5
+            && ((ISolidColorBrush)meterModel.SwrIndicatorBrush).Color == Color.FromRgb(213, 154, 66),
+            "SWR above 1.5 should be orange.");
+        updateSwr.Invoke(meterModel, new object[] { 113 });
+        Assert(meterModel.SwrMeterValue == 2.0
+            && ((ISolidColorBrush)meterModel.SwrIndicatorBrush).Color == Color.FromRgb(213, 154, 66),
+            "SWR 2.0 should remain orange.");
+        updateSwr.Invoke(meterModel, new object[] { 114 });
+        Assert(meterModel.SwrMeterValue > 2.0
+            && ((ISolidColorBrush)meterModel.SwrIndicatorBrush).Color == Color.FromRgb(229, 57, 53),
+            "SWR above 2.0 should be red.");
+        updateAlc.Invoke(meterModel, new object[] { 0 });
+        Assert(meterModel.AlcMeterValue == 0 && meterModel.AlcReading == "0%",
+            "A zero ALC reading was confused with missing data.");
+        updateAlc.Invoke(meterModel, new object[] { 128 });
+        Assert(meterModel.AlcMeterValue == 50 && meterModel.AlcReading == "50%",
+            "The ALC marker did not follow the converted percentage.");
+        typeof(MainViewModel).GetMethod("ClearTransmitMeterReadings", PrivateInstance)!.Invoke(meterModel, null);
+        Assert(meterModel.PowerOutputMeterValue is null && meterModel.SwrMeterValue is null
+            && meterModel.AlcMeterValue is null, "Transmit meter markers did not clear on RX.");
     }
 
     {
