@@ -12,6 +12,21 @@ public sealed class WaveBackground : Control
 
     private const double WaveSpacing = 120;
     private static readonly Pen WavePen = new(new SolidColorBrush(Color.FromArgb(38, 35, 154, 198)), 1);
+    private static readonly Pen[] TrailPens =
+    {
+        new(new SolidColorBrush(Color.FromArgb(12, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(11, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(10, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(9, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(8, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(7, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(6, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(5, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(4, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(3, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(2, 35, 154, 198)), 1),
+        new(new SolidColorBrush(Color.FromArgb(1, 35, 154, 198)), 1)
+    };
 
     static WaveBackground() => AffectsRender<WaveBackground>(PhaseProperty);
 
@@ -37,6 +52,18 @@ public sealed class WaveBackground : Control
 
             using (context.PushOpacity(Math.Min(radius / WaveSpacing, 1)))
             {
+                for (var i = 0; i < TrailPens.Length; i++)
+                {
+                    var trailRadius = radius - i - 1;
+                    if (trailRadius <= 0)
+                    {
+                        break;
+                    }
+
+                    context.DrawEllipse(null, TrailPens[i], topRight, trailRadius, trailRadius);
+                    context.DrawEllipse(null, TrailPens[i], bottomLeft, trailRadius, trailRadius);
+                }
+
                 context.DrawEllipse(null, WavePen, topRight, radius, radius);
                 context.DrawEllipse(null, WavePen, bottomLeft, radius, radius);
             }

@@ -162,6 +162,225 @@ finally
 
 Console.WriteLine("Connection timeout UI checks passed.");
 
+var warningTestRoot = Path.Combine(Path.GetTempPath(), "FTX1Control-warning-check-" + Guid.NewGuid().ToString("N"));
+var warningPath = Path.Combine(warningTestRoot, "warning.txt");
+var warningModels = new List<MainViewModel>();
+MainViewModel CreateWarningModel(string? settingsPath = null)
+{
+    var assembly = typeof(MainViewModel).Assembly;
+    var logStore = Activator.CreateInstance(assembly.GetType("FTX1Control.Services.CatLogSettingsStore")!,
+        Path.Combine(warningTestRoot, "log.txt"))!;
+    var warningStore = Activator.CreateInstance(assembly.GetType("FTX1Control.Services.HfPowerWarningSettingsStore")!,
+        settingsPath ?? warningPath)!;
+    var model = (MainViewModel)Activator.CreateInstance(
+        typeof(MainViewModel), PrivateInstance, null, new[] { logStore, warningStore }, null)!;
+    warningModels.Add(model);
+    return model;
+}
+
+try
+{
+    {
+        var warningModel = CreateWarningModel();
+        Assert(warningModel.HfPowerWarningLimit == 25, "The default HF warning limit is incorrect.");
+        Assert(warningModel.RfPowerBarValue == 0, "The power bar should be empty without a radio reading.");
+        var barNotifications = 0;
+        warningModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.RfPowerBarValue)) barNotifications++;
+        };
+        var updateFrequency = typeof(MainViewModel).GetMethod("UpdateFrequency", PrivateInstance)!;
+        var updateMode = typeof(MainViewModel).GetMethod("UpdateMode", PrivateInstance)!;
+        var applyPower = typeof(MainViewModel).GetMethod("ApplyRfPowerFromRadio", PrivateInstance)!;
+        updateFrequency.Invoke(warningModel, new object[] { 0, 30_000_000 });
+        updateMode.Invoke(warningModel, new object[] { 0, 'C', "DATA-U" });
+        warningModel.TransmitVfo = 0;
+        var warningLimits = (Dictionary<int, int>)typeof(MainViewModel)
+            .GetField("_rfPowerLimits", PrivateInstance)!.GetValue(warningModel)!;
+        warningLimits[5] = 100;
+        Assert(warningModel.MaximumRfPower == 100, "30 MHz was not recognized as the HF power context.");
+        applyPower.Invoke(warningModel, new object[] { 25 });
+        Assert(warningModel.RfPowerBarValue == 0, "The power bar should be empty while disconnected.");
+        warningModel.IsConnected = true;
+        Assert(warningModel.RfPowerBarValue == 25 && barNotifications > 0,
+            "The power bar did not update from the radio reading.");
+        applyPower.Invoke(warningModel, new object[] { 100 });
+        Assert(warningModel.RfPowerBarValue == 100, "The power bar did not reach its 100 W maximum.");
+        warningLimits[5] = 30;
+        var refreshPower = typeof(MainViewModel).GetMethod("RefreshRfPowerControls", PrivateInstance)!;
+        refreshPower.Invoke(warningModel, null);
+        applyPower.Invoke(warningModel, new object[] { 15 });
+        Assert(warningModel.MaximumRfPower == 30 && warningModel.RfPowerBarValue == 15,
+            "The power bar did not use the band limit for half scale.");
+        applyPower.Invoke(warningModel, new object[] { 30 });
+        Assert(warningModel.RfPowerBarValue == warningModel.MaximumRfPower,
+            "The power bar was not full at the band limit.");
+        warningLimits.Clear();
+        refreshPower.Invoke(warningModel, null);
+        Assert(warningModel.RfPowerBarValue == 0, "The power bar should be empty when the band limit is unknown.");
+        applyPower.Invoke(warningModel, new object[] { 25 });
+        Assert(!warningModel.IsRfPowerWarning, "Power equal to the limit triggered a warning.");
+        Assert(warningModel.RfPowerOverLimitReading == string.Empty, "Equal power reported an excess.");
+        applyPower.Invoke(warningModel, new object[] { 26 });
+        Assert(warningModel.IsRfPowerWarning && warningModel.RfPowerOverLimitReading == "+1 W",
+            "DATA-U at 30 MHz did not report the power above the limit.");
+        var warningNotifications = 0;
+        var excessNotifications = 0;
+        warningModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsRfPowerWarning)) warningNotifications++;
+            if (e.PropertyName == nameof(MainViewModel.RfPowerOverLimitReading)) excessNotifications++;
+        };
+        applyPower.Invoke(warningModel, new object[] { 30 });
+        Assert(warningModel.RfPowerOverLimitReading == "+5 W" && excessNotifications > 0,
+            "A new radio reading did not update the power excess.");
+        applyPower.Invoke(warningModel, new object[] { 26 });
+        excessNotifications = 0;
+        updateMode.Invoke(warningModel, new object[] { 0, '2', "USB" });
+        Assert(!warningModel.IsRfPowerWarning && warningNotifications > 0,
+            "Changing mode within the same RF power context did not clear the warning.");
+        updateMode.Invoke(warningModel, new object[] { 0, 'C', "DATA-U" });
+        updateFrequency.Invoke(warningModel, new object[] { 0, 30_000_001 });
+        Assert(!warningModel.IsRfPowerWarning, "A frequency above 30 MHz triggered the warning.");
+        updateFrequency.Invoke(warningModel, new object[] { 1, 7_100_000 });
+        updateMode.Invoke(warningModel, new object[] { 1, 'C', "DATA-U" });
+        warningModel.TransmitVfo = 1;
+        Assert(warningModel.IsRfPowerWarning, "The SUB TRX VFO did not trigger the warning.");
+        warningModel.HfPowerWarningLimit = 26;
+        Assert(!warningModel.IsRfPowerWarning && warningModel.RfPowerOverLimitReading == string.Empty
+            && excessNotifications > 0 && File.ReadAllText(warningPath) == "26",
+            "Changing the limit did not update and save the warning.");
+        warningModel.HfPowerWarningLimit = 5;
+        Assert(warningModel.IsRfPowerWarning && warningModel.RfPowerOverLimitReading == "+21 W",
+            "The minimum limit did not update the power excess.");
+        warningModel.HfPowerWarningLimit = 100;
+        Assert(!warningModel.IsRfPowerWarning, "The maximum limit did not clear the warning.");
+        warningModel.HfPowerWarningLimit = 5;
+        warningModel.IsConnected = false;
+        Assert(!warningModel.IsRfPowerWarning, "The warning remained active after disconnecting.");
+        warningModel.HfPowerWarningLimit = 100;
+        typeof(MainViewModel).GetMethod("ClearRadioReadings", PrivateInstance)!.Invoke(warningModel, null);
+        Assert(warningModel.RfPowerBarValue == 0, "The power bar was not cleared with the radio readings.");
+    }
+
+    {
+        var bandModel = CreateWarningModel();
+        var updateFrequency = typeof(MainViewModel).GetMethod("UpdateFrequency", PrivateInstance)!;
+        var bandChanges = 0;
+        bandModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.TransmitAmateurBand)) bandChanges++;
+        };
+        updateFrequency.Invoke(bandModel, new object[] { 0, 14_000_000 });
+        bandModel.TransmitVfo = 0;
+        Assert(bandModel.TransmitAmateurBand == "--", "A disconnected radio displayed an amateur band.");
+        bandModel.IsConnected = true;
+        Assert(bandModel.TransmitAmateurBand == "20 m", "The TRX amateur band was not displayed.");
+        var bands = new (int Lower, int Upper, string Name)[]
+        {
+            (135_700, 137_800, "2200 m"), (472_000, 479_000, "630 m"),
+            (1_810_000, 2_000_000, "160 m"), (3_500_000, 3_800_000, "80 m"),
+            (5_351_500, 5_366_500, "60 m"), (7_000_000, 7_200_000, "40 m"),
+            (10_100_000, 10_150_000, "30 m"), (14_000_000, 14_350_000, "20 m"),
+            (18_068_000, 18_168_000, "17 m"), (21_000_000, 21_450_000, "15 m"),
+            (24_890_000, 24_990_000, "12 m"), (28_000_000, 29_700_000, "10 m"),
+            (50_000_000, 52_000_000, "6 m"), (70_000_000, 70_500_000, "4 m"),
+            (144_000_000, 146_000_000, "2 m"), (430_000_000, 440_000_000, "70 cm")
+        };
+        foreach (var band in bands)
+        {
+            updateFrequency.Invoke(bandModel, new object[] { 0, band.Lower });
+            Assert(bandModel.TransmitAmateurBand == band.Name, $"Incorrect lower edge for {band.Name}.");
+            updateFrequency.Invoke(bandModel, new object[] { 0, band.Upper });
+            Assert(bandModel.TransmitAmateurBand == band.Name, $"Incorrect upper edge for {band.Name}.");
+            updateFrequency.Invoke(bandModel, new object[] { 0, band.Upper + 1 });
+            Assert(bandModel.TransmitAmateurBand == "--", $"Frequency above {band.Name} was treated as amateur band.");
+        }
+        Assert(bandChanges > 0, "Band changes were not reported to the UI.");
+        updateFrequency.Invoke(bandModel, new object[] { 1, 7_100_000 });
+        bandModel.TransmitVfo = 1;
+        Assert(bandModel.TransmitAmateurBand == "40 m", "The band did not follow the TRX VFO.");
+        bandModel.IsConnected = false;
+        Assert(bandModel.TransmitAmateurBand == "--", "The band remained visible after disconnecting.");
+    }
+
+    {
+        var tuneModel = CreateWarningModel();
+        var updateFrequency = typeof(MainViewModel).GetMethod("UpdateFrequency", PrivateInstance)!;
+        var commandChanges = 0;
+        tuneModel.StartAntennaTuningCommand.CanExecuteChanged += (_, _) => commandChanges++;
+        tuneModel.IsConnected = true;
+        Assert(!tuneModel.CanTuneAntenna && !tuneModel.StartAntennaTuningCommand.CanExecute(null),
+            "Antenna tuning was enabled without a known TRX VFO.");
+        tuneModel.TransmitVfo = 0;
+        updateFrequency.Invoke(tuneModel, new object[] { 0, 30_000_000 });
+        Assert(tuneModel.CanTuneAntenna && tuneModel.StartAntennaTuningCommand.CanExecute(null),
+            "Antenna tuning was not enabled at the HF boundary.");
+        var previousChanges = commandChanges;
+        updateFrequency.Invoke(tuneModel, new object[] { 0, 30_000_001 });
+        Assert(!tuneModel.CanTuneAntenna && !tuneModel.StartAntennaTuningCommand.CanExecute(null)
+            && commandChanges > previousChanges, "Moving above HF did not disable antenna tuning.");
+        updateFrequency.Invoke(tuneModel, new object[] { 1, 7_100_000 });
+        Assert(!tuneModel.CanTuneAntenna, "The receive VFO enabled antenna tuning.");
+        tuneModel.TransmitVfo = 1;
+        Assert(tuneModel.CanTuneAntenna && tuneModel.StartAntennaTuningCommand.CanExecute(null),
+            "Switching TRX to an HF VFO did not enable antenna tuning.");
+        tuneModel.IsTransmitting = true;
+        Assert(!tuneModel.CanTuneAntenna && !tuneModel.StartAntennaTuningCommand.CanExecute(null),
+            "Antenna tuning was enabled during transmission.");
+        tuneModel.IsTransmitting = false;
+        Assert(tuneModel.CanTuneAntenna, "Antenna tuning did not return after transmission ended.");
+        tuneModel.IsConnected = false;
+        Assert(!tuneModel.CanTuneAntenna, "Antenna tuning remained enabled after disconnecting.");
+    }
+
+    {
+        var amModel = CreateWarningModel();
+        var updateFrequency = typeof(MainViewModel).GetMethod("UpdateFrequency", PrivateInstance)!;
+        var updateMode = typeof(MainViewModel).GetMethod("UpdateMode", PrivateInstance)!;
+        updateFrequency.Invoke(amModel, new object[] { 0, 50_000_000 });
+        updateMode.Invoke(amModel, new object[] { 0, '5', "AM" });
+        amModel.TransmitVfo = 0;
+        var limits = (Dictionary<int, int>)typeof(MainViewModel)
+            .GetField("_rfPowerLimits", PrivateInstance)!.GetValue(amModel)!;
+        limits[6] = 100;
+        typeof(MainViewModel).GetMethod("ApplyRfPowerFromRadio", PrivateInstance)!.Invoke(amModel, new object[] { 25 });
+        amModel.IsConnected = true;
+        Assert(amModel.RfPowerBarValue == 0, "The power bar should be empty when the AM limit is unknown.");
+        limits[10] = 25;
+        typeof(MainViewModel).GetMethod("RefreshRfPowerControls", PrivateInstance)!.Invoke(amModel, null);
+        Assert(amModel.MaximumRfPower == 25 && amModel.RfPowerBarValue == 25,
+            "The power bar did not use the lower AM limit.");
+    }
+
+    {
+        var restarted = CreateWarningModel();
+        Assert(restarted.HfPowerWarningLimit == 100, "The HF warning limit was not restored.");
+    }
+    File.WriteAllText(warningPath, "101");
+    {
+        var invalid = CreateWarningModel();
+        Assert(invalid.HasHfPowerWarningSettingsError && invalid.HfPowerWarningLimit == 25,
+            "An invalid saved warning limit was not reported.");
+    }
+    {
+        var inaccessible = CreateWarningModel(warningTestRoot);
+        inaccessible.HfPowerWarningLimit = 30;
+        Assert(inaccessible.HasHfPowerWarningSettingsError,
+            "Failure to save the warning limit was not reported.");
+    }
+}
+finally
+{
+    foreach (var model in warningModels) model.Dispose();
+    if (Directory.Exists(warningTestRoot))
+    {
+        Directory.Delete(warningTestRoot, recursive: true);
+    }
+}
+
+Console.WriteLine("HF power warning checks passed.");
+
 var frequencyModel = CreateModel(isolatedSettingsPath);
 try
 {

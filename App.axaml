@@ -10,6 +10,8 @@
             <x:String x:Key="WindowTitle">FTX-1 | Sterowanie CAT</x:String>
             <x:String x:Key="HeaderTitle">Panel sterowania</x:String>
             <x:String x:Key="AlwaysOnTop">Zawsze na wierzchu</x:String>
+            <x:String x:Key="HfPowerWarningLimit">Limit ostrzegawczy mocy KF (DATA-U)</x:String>
+            <x:String x:Key="HfPowerOverLimit">PONAD LIMIT</x:String>
             <x:String x:Key="CatLogFolder">Folder logów CAT</x:String>
             <x:String x:Key="CatLogFolderUnset">Brak folderu — zapis wyłączony</x:String>
             <x:String x:Key="ChooseCatLogFolder">Wybierz folder</x:String>
@@ -26,6 +28,7 @@
             <x:String x:Key="IncreaseDnrTip">Zwiększ poziom DNR</x:String>
             <x:String x:Key="DecreaseDnrTip">Zmniejsz poziom DNR</x:String>
             <x:String x:Key="TransmitPowerTitle">MOC NADAWANIA</x:String>
+            <x:String x:Key="AmateurBand">PASMO</x:String>
             <x:String x:Key="SettingsTitle">USTAWIENIA</x:String>
             <x:String x:Key="TransmitMetersTitle">MIERNIKI NADAWANIA</x:String>
             <x:String x:Key="ActiveDuringTx">Aktywne podczas TX</x:String>

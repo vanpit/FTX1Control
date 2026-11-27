@@ -316,23 +316,6 @@ public partial class MainWindow : Window
     private void OnSubVolumePointerPressed(object? sender, PointerPressedEventArgs e) =>
         SetVolumeFromPointer(SubVolumeTrack, e, isMainVfo: false);
 
-    private void OnRfPowerSliderPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (DataContext is MainViewModel viewModel)
-        {
-            viewModel.CommitRfPowerSliderValue();
-        }
-    }
-
-    private void OnRfPowerSliderKeyUp(object? sender, KeyEventArgs e)
-    {
-        if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown
-            && DataContext is MainViewModel viewModel)
-        {
-            viewModel.CommitRfPowerSliderValue();
-        }
-    }
-
     private void OnVolumeTrackSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         if (DataContext is MainViewModel viewModel)

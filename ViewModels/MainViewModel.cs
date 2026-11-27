@@ -80,6 +80,9 @@ public partial class MainViewModel : ViewModelBase
     private readonly CatSerialConnection _cat = new();
     private readonly ConnectionSettingsStore _connectionSettingsStore = ConnectionSettingsStore.CreateDefault();
     private readonly CatLogSettingsStore _catLogSettingsStore;
+    private readonly HfPowerWarningSettingsStore _hfPowerWarningSettingsStore;
+    private int _hfPowerWarningLimit = 25;
+    private string _hfPowerWarningSettingsError = string.Empty;
     private ConnectionSettings? _savedConnectionSettings;
     private readonly Queue<string> _catLogLines = new();
     private readonly object _catLogFileSync = new();
@@ -112,7 +115,6 @@ public partial class MainViewModel : ViewModelBase
     private bool _isApplyingRadioAudioGain;
     private double _mainVolumeBeforeMute;
     private double _subVolumeBeforeMute;
-    private bool _isApplyingRadioRfPower;
     private readonly Dictionary<int, int> _rfPowerLimits = new();
     private int? _rfPowerWatts;
     private CancellationTokenSource? _rfPowerChangeCancellation;
@@ -250,9 +252,6 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isMeterDetectorUpdating;
 
-    [ObservableProperty]
-    private double _rfPowerSliderValue = 5;
-
     public int SMeterSRangeValue => Math.Min(SMeterRaw, 125);
     public int SMeterOverRangeValue => Math.Max(SMeterRaw - 125, 0);
     public int SubSMeterSRangeValue => Math.Min(SubSMeterRaw, 125);
@@ -376,8 +375,85 @@ public partial class MainViewModel : ViewModelBase
     public string SubSelectedMeterLabel => _subMeterCode is int code
         ? MeterOptionViewModel.GetLabel(code)
         : "--";
-    public bool CanTuneAntenna => IsConnected && !IsTransmitting;
+    public bool CanTuneAntenna => IsConnected && !IsTransmitting
+        && (TransmitVfo == 0 ? _mainFrequencyHz : TransmitVfo == 1 ? _subFrequencyHz : null) is > 0 and <= 30_000_000;
+    public string TransmitAmateurBand => (IsConnected
+        ? TransmitVfo == 0 ? _mainFrequencyHz : TransmitVfo == 1 ? _subFrequencyHz : null
+        : null) switch
+    {
+        >= 135_700 and <= 137_800 => "2200 m",
+        >= 472_000 and <= 479_000 => "630 m",
+        >= 1_810_000 and <= 2_000_000 => "160 m",
+        >= 3_500_000 and <= 3_800_000 => "80 m",
+        >= 5_351_500 and <= 5_366_500 => "60 m",
+        >= 7_000_000 and <= 7_200_000 => "40 m",
+        >= 10_100_000 and <= 10_150_000 => "30 m",
+        >= 14_000_000 and <= 14_350_000 => "20 m",
+        >= 18_068_000 and <= 18_168_000 => "17 m",
+        >= 21_000_000 and <= 21_450_000 => "15 m",
+        >= 24_890_000 and <= 24_990_000 => "12 m",
+        >= 28_000_000 and <= 29_700_000 => "10 m",
+        >= 50_000_000 and <= 52_000_000 => "6 m",
+        >= 70_000_000 and <= 70_500_000 => "4 m",
+        >= 144_000_000 and <= 146_000_000 => "2 m",
+        >= 430_000_000 and <= 440_000_000 => "70 cm",
+        _ => "--"
+    };
     public string RfPowerReading => _rfPowerWatts is int watts ? $"{watts} W" : "-- W";
+    public int RfPowerBarValue => CanSetRfPower && _rfPowerWatts is int watts ? watts : 0;
+    public string RfPowerOverLimitReading => _rfPowerWatts is int watts && watts > _hfPowerWarningLimit
+        ? $"+{watts - _hfPowerWarningLimit} W"
+        : string.Empty;
+    public double HfPowerWarningLimit
+    {
+        get => _hfPowerWarningLimit;
+        set
+        {
+            if (!double.IsFinite(value) || value < 5 || value > 100)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value));
+            }
+
+            var watts = (int)Math.Round(value, MidpointRounding.AwayFromZero);
+            if (_hfPowerWarningLimit == watts)
+            {
+                return;
+            }
+
+            _hfPowerWarningLimit = watts;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HfPowerWarningLimitReading));
+            OnPropertyChanged(nameof(IsRfPowerWarning));
+            OnPropertyChanged(nameof(RfPowerOverLimitReading));
+            try
+            {
+                _hfPowerWarningSettingsStore.Save(watts);
+                HfPowerWarningSettingsError = string.Empty;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or SecurityException)
+            {
+                Trace.TraceError($"Unable to save the HF power warning limit: {exception}");
+                HfPowerWarningSettingsError = $"Nie można zapisać limitu ostrzegawczego mocy KF: {exception.Message}";
+            }
+        }
+    }
+    public string HfPowerWarningLimitReading => $"{_hfPowerWarningLimit} W";
+    public string HfPowerWarningSettingsError
+    {
+        get => LanguageService.TranslateStatus(_hfPowerWarningSettingsError);
+        private set
+        {
+            if (SetProperty(ref _hfPowerWarningSettingsError, value))
+            {
+                OnPropertyChanged(nameof(HasHfPowerWarningSettingsError));
+            }
+        }
+    }
+    public bool HasHfPowerWarningSettingsError => _hfPowerWarningSettingsError.Length > 0;
+    public bool IsRfPowerWarning => IsConnected
+        && (TransmitVfo == 0 ? _mainModeCode : TransmitVfo == 1 ? _subModeCode : null) == 'C'
+        && (TransmitVfo == 0 ? _mainFrequencyHz : TransmitVfo == 1 ? _subFrequencyHz : null) is > 0 and <= 30_000_000
+        && _rfPowerWatts > _hfPowerWarningLimit;
     public bool IsRfPower5Selected => _rfPowerWatts == 5;
     public bool IsRfPower10Selected => _rfPowerWatts == 10;
     public bool IsRfPower15Selected => _rfPowerWatts == 15;
@@ -440,10 +516,25 @@ public partial class MainViewModel : ViewModelBase
     }
 
     internal MainViewModel(CatLogSettingsStore catLogSettingsStore)
+        : this(catLogSettingsStore, HfPowerWarningSettingsStore.CreateDefault())
+    {
+    }
+
+    internal MainViewModel(CatLogSettingsStore catLogSettingsStore, HfPowerWarningSettingsStore hfPowerWarningSettingsStore)
     {
         _catLogSettingsStore = catLogSettingsStore;
+        _hfPowerWarningSettingsStore = hfPowerWarningSettingsStore;
         _selectedLanguageIndex = LanguageService.LoadPreferredLanguageIndex();
         LanguageService.SetLanguage(_selectedLanguageIndex, savePreference: false);
+        try
+        {
+            _hfPowerWarningLimit = _hfPowerWarningSettingsStore.Load();
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException or SecurityException)
+        {
+            Trace.TraceError($"Unable to read the HF power warning limit: {exception}");
+            HfPowerWarningSettingsError = $"Nie można odczytać limitu ostrzegawczego mocy KF: {exception.Message}";
+        }
         try
         {
             _catLogFolder = _catLogSettingsStore.Load();
@@ -483,6 +574,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ConnectionStatus));
         OnPropertyChanged(nameof(StatusMessage));
         OnPropertyChanged(nameof(CatLogFileError));
+        OnPropertyChanged(nameof(HfPowerWarningSettingsError));
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(CatLogAutoScrollButtonText));
         OnPropertyChanged(nameof(TransmitStatusText));
@@ -2136,6 +2228,11 @@ public partial class MainViewModel : ViewModelBase
         {
             ScheduleFrequencyRefresh(vfo);
         }
+        if (frequencyChanged && TransmitVfo == vfo)
+        {
+            OnPropertyChanged(nameof(TransmitAmateurBand));
+            RefreshAntennaTuning();
+        }
         UpdateRfPowerContext();
     }
 
@@ -2656,11 +2753,12 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdateRfPowerContext()
     {
+        OnPropertyChanged(nameof(IsRfPowerWarning));
         var frequency = TransmitVfo == 0 ? _mainFrequencyHz : TransmitVfo == 1 ? _subFrequencyHz : null;
         var mode = TransmitVfo == 0 ? _mainModeCode : TransmitVfo == 1 ? _subModeCode : null;
         int? band = frequency switch
         {
-            > 0 and < 30_000_000 => 5,
+            > 0 and <= 30_000_000 => 5,
             >= 50_000_000 and < 60_000_000 => 6,
             >= 70_000_000 and < 80_000_000 => 7,
             >= 136_000_000 and < 174_000_000 => 8,
@@ -2707,30 +2805,20 @@ public partial class MainViewModel : ViewModelBase
 
     private void RefreshRfPowerControls()
     {
-        _isApplyingRadioRfPower = true;
-        try
-        {
-            OnPropertyChanged(nameof(MaximumRfPower));
-            OnPropertyChanged(nameof(CanSetRfPower));
-            OnPropertyChanged(nameof(RfPowerReading));
-            OnPropertyChanged(nameof(IsRfPower5Selected));
-            OnPropertyChanged(nameof(IsRfPower10Selected));
-            OnPropertyChanged(nameof(IsRfPower15Selected));
-            OnPropertyChanged(nameof(IsRfPower20Selected));
-            OnPropertyChanged(nameof(IsRfPower25Selected));
-            OnPropertyChanged(nameof(IsRfPower30Selected));
-            OnPropertyChanged(nameof(IsRfPower50Selected));
-            OnPropertyChanged(nameof(IsRfPower100Selected));
-            if (_rfPowerChangeCancellation is null)
-            {
-                RfPowerSliderValue = Math.Clamp(_rfPowerWatts ?? 5, 5, MaximumRfPower);
-            }
-        }
-        finally
-        {
-            _isApplyingRadioRfPower = false;
-        }
-
+        OnPropertyChanged(nameof(MaximumRfPower));
+        OnPropertyChanged(nameof(CanSetRfPower));
+        OnPropertyChanged(nameof(RfPowerReading));
+        OnPropertyChanged(nameof(RfPowerBarValue));
+        OnPropertyChanged(nameof(RfPowerOverLimitReading));
+        OnPropertyChanged(nameof(IsRfPowerWarning));
+        OnPropertyChanged(nameof(IsRfPower5Selected));
+        OnPropertyChanged(nameof(IsRfPower10Selected));
+        OnPropertyChanged(nameof(IsRfPower15Selected));
+        OnPropertyChanged(nameof(IsRfPower20Selected));
+        OnPropertyChanged(nameof(IsRfPower25Selected));
+        OnPropertyChanged(nameof(IsRfPower30Selected));
+        OnPropertyChanged(nameof(IsRfPower50Selected));
+        OnPropertyChanged(nameof(IsRfPower100Selected));
         SelectRfPowerPresetCommand.NotifyCanExecuteChanged();
     }
 
@@ -2770,25 +2858,6 @@ public partial class MainViewModel : ViewModelBase
 
             cancellation.Dispose();
         }
-    }
-
-    public void CommitRfPowerSliderValue()
-    {
-        if (_isApplyingRadioRfPower || !CanSetRfPower)
-        {
-            return;
-        }
-
-        var watts = Math.Clamp((int)Math.Round(RfPowerSliderValue, MidpointRounding.AwayFromZero), 5, MaximumRfPower);
-        if (_rfPowerWatts == watts)
-        {
-            return;
-        }
-
-        CancelRfPowerChange();
-        var cancellation = new CancellationTokenSource();
-        _rfPowerChangeCancellation = cancellation;
-        _ = SetRfPowerAsync(watts, cancellation);
     }
 
     private async Task SetRfPowerAsync(int watts, CancellationTokenSource cancellation)
@@ -2839,10 +2908,12 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanSelectRfPowerPreset))]
     private void SelectRfPowerPreset(string? value)
     {
-        if (CanSelectRfPowerPreset(value) && int.TryParse(value, out var watts))
+        if (CanSelectRfPowerPreset(value) && int.TryParse(value, out var watts) && _rfPowerWatts != watts)
         {
-            RfPowerSliderValue = watts;
-            CommitRfPowerSliderValue();
+            CancelRfPowerChange();
+            var cancellation = new CancellationTokenSource();
+            _rfPowerChangeCancellation = cancellation;
+            _ = SetRfPowerAsync(watts, cancellation);
         }
     }
 
@@ -3032,6 +3103,7 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnIsConnectedChanged(bool value)
     {
+        OnPropertyChanged(nameof(TransmitAmateurBand));
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(ConnectionIndicatorBrush));
         OnPropertyChanged(nameof(CanSelectComPort));
@@ -3039,7 +3111,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanSelectMeterDetector));
         RefreshDLevelControls();
         RefreshNoiseControlLevels();
-        StartAntennaTuningCommand.NotifyCanExecuteChanged();
+        RefreshAntennaTuning();
         RefreshRfPowerControls();
         OnPropertyChanged(nameof(CanPinMainFrequency));
         OnPropertyChanged(nameof(CanPinSubFrequency));
@@ -3112,8 +3184,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSubVfoTransmitting));
         OnPropertyChanged(nameof(MainFrequencyBrush));
         OnPropertyChanged(nameof(SubFrequencyBrush));
-        OnPropertyChanged(nameof(CanTuneAntenna));
-        StartAntennaTuningCommand.NotifyCanExecuteChanged();
+        RefreshAntennaTuning();
     }
 
     partial void OnMainVolumeLevelChanged(double value)
@@ -3154,7 +3225,15 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(SubFrequencyBrush));
         OnPropertyChanged(nameof(MainFrequencyFontSize));
         OnPropertyChanged(nameof(SubFrequencyFontSize));
+        OnPropertyChanged(nameof(TransmitAmateurBand));
+        RefreshAntennaTuning();
         UpdateRfPowerContext();
+    }
+
+    private void RefreshAntennaTuning()
+    {
+        OnPropertyChanged(nameof(CanTuneAntenna));
+        StartAntennaTuningCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnAlcPercentChanged(int value) =>

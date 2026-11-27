@@ -302,16 +302,30 @@
         </Style>
         <Style Selector="Border.transmit-status">
             <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundChecked}" />
+            <Setter Property="BoxShadow" Value="0 0 22 3 #800087ED" />
+        </Style>
+        <Style Selector="StackPanel.rf-power-warning.active">
+            <Style.Animations>
+                <Animation Duration="0:0:1" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+                    <KeyFrame Cue="49.9%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+                    <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0" /></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0" /></KeyFrame>
+                </Animation>
+            </Style.Animations>
         </Style>
         <Style Selector="Border.transmit-status.transmitting">
             <Setter Property="Background" Value="{Binding TransmitStatusBrush}" />
+            <Setter Property="BoxShadow" Value="0 0 22 3 #88E53935" />
             <Style.Animations>
                 <Animation Duration="0:0:0.8" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
                     <KeyFrame Cue="0%">
                         <Setter Property="Background" Value="#E53935" />
+                        <Setter Property="BoxShadow" Value="0 0 22 3 #88E53935" />
                     </KeyFrame>
                     <KeyFrame Cue="100%">
                         <Setter Property="Background" Value="#851B19" />
+                        <Setter Property="BoxShadow" Value="0 0 22 3 #48851B19" />
                     </KeyFrame>
                 </Animation>
             </Style.Animations>
@@ -474,6 +488,14 @@
                             <StackPanel Spacing="10" MaxWidth="320">
                                 <CheckBox Content="{DynamicResource AlwaysOnTop}" IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
                                 <Border Height="1" Background="#40515D" />
+                                <TextBlock Text="{DynamicResource HfPowerWarningLimit}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" MinWidth="250">
+                                    <Slider Minimum="5" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1"
+                                            Value="{Binding HfPowerWarningLimit, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding HfPowerWarningLimitReading}" MinWidth="45" TextAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Text="{Binding HfPowerWarningSettingsError}" IsVisible="{Binding HasHfPowerWarningSettingsError}" Foreground="#E74C3C" TextWrapping="Wrap" />
+                                <Border Height="1" Background="#40515D" />
                                 <TextBlock Text="{DynamicResource CatLogFolder}" FontWeight="SemiBold" />
                                 <TextBlock Text="{DynamicResource CatLogFolderUnset}" IsVisible="{Binding IsCatLogFolderUnset}" TextWrapping="Wrap" />
                                 <TextBlock Text="{Binding CatLogFolder}" IsVisible="{Binding HasCatLogFolder}" TextWrapping="Wrap" />
@@ -497,7 +519,7 @@
                     <Grid MinHeight="32">
                         <TextBlock Text="{DynamicResource ConnectionTitle}" FontSize="10" FontWeight="Bold" Foreground="#D7E1EC" VerticalAlignment="Center" />
                     </Grid>
-                    <Grid Grid.Row="1" ColumnDefinitions="*,150,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+                    <Grid Grid.Row="1" ColumnDefinitions="*,150,Auto" ColumnSpacing="12" VerticalAlignment="Bottom">
                         <StackPanel Spacing="6" HorizontalAlignment="Stretch">
                             <TextBlock Text="{DynamicResource SerialPortLabel}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" />
                             <ComboBox ItemsSource="{Binding AvailableComPorts}" SelectedItem="{Binding SelectedComPort}" IsEnabled="{Binding CanSelectComPort}" DropDownOpened="OnComPortDropDownOpened" HorizontalAlignment="Stretch">
@@ -517,14 +539,14 @@
                 </Grid>
             </Border>
             <Border Grid.Column="1" Classes="panel" Padding="17,11,14,11">
-                <Grid RowDefinitions="Auto,Auto,56" RowSpacing="8">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,0,0,3">
                         <TextBlock Text="{DynamicResource CatStatus}" FontSize="10" FontWeight="Bold" Foreground="#D7E1EC" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="{Binding StatusMessageBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                         <ToggleButton Grid.Column="2" Classes="auto-scroll" IsChecked="{Binding IsCatLogAutoScroll}" Content="{Binding CatLogAutoScrollButtonText}" VerticalAlignment="Center" />
                     </Grid>
-                    <TextBlock Grid.Row="1" Text="{Binding CatLogFileError}" IsVisible="{Binding HasCatLogFileError}" FontSize="12" Foreground="#E74C3C" TextWrapping="Wrap" />
-                    <Border Grid.Row="2" Margin="0,-1,0,0" BorderBrush="#465A67" BorderThickness="1" CornerRadius="6">
+                    <TextBlock Grid.Row="1" Text="{Binding CatLogFileError}" IsVisible="{Binding HasCatLogFileError}" FontSize="12" Foreground="#E74C3C" TextWrapping="Wrap" Margin="0,5,0,3" />
+                    <Border Grid.Row="2" Height="69" VerticalAlignment="Bottom" BorderBrush="#465A67" BorderThickness="1" CornerRadius="6" Padding="0,6,0,5">
                         <ScrollViewer x:Name="CatLogScrollViewer" Background="Transparent" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <SelectableTextBlock x:Name="CatLogText" Margin="12,0" TextWrapping="NoWrap" Foreground="#FFFFFF" FontFamily="Consolas" FontSize="11" LineHeight="14" />
                         </ScrollViewer>
@@ -535,9 +557,14 @@
 
         <Border Grid.Row="2" Classes="panel" Padding="21,18,18,18">
             <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
-                <TextBlock Text="{DynamicResource TransmitPowerTitle}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" />
-                <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{DynamicResource TransmitPowerTitle}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" />
+                    <Border Width="1" Background="#788D9B" Margin="0,2" />
+                    <TextBlock Text="{DynamicResource AmateurBand}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" />
+                    <TextBlock Text="{Binding TransmitAmateurBand}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" />
+                </StackPanel>
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,18">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                         <Button Classes="detector rf-power" Classes.rf-power-selected="{Binding IsRfPower5Selected}" Margin="0,0,6,0" Content="5 W" Command="{Binding SelectRfPowerPresetCommand}" CommandParameter="5" />
                         <Button Classes="detector rf-power" Classes.rf-power-selected="{Binding IsRfPower10Selected}" Margin="0,0,6,0" Content="10 W" Command="{Binding SelectRfPowerPresetCommand}" CommandParameter="10" />
                         <Button Classes="detector rf-power" Classes.rf-power-selected="{Binding IsRfPower15Selected}" Margin="0,0,6,0" Content="15 W" Command="{Binding SelectRfPowerPresetCommand}" CommandParameter="15" />
@@ -547,11 +574,17 @@
                         <Button Classes="detector rf-power" Classes.rf-power-selected="{Binding IsRfPower50Selected}" Margin="0,0,6,0" Content="50 W" Command="{Binding SelectRfPowerPresetCommand}" CommandParameter="50" />
                         <Button Classes="detector rf-power" Classes.rf-power-selected="{Binding IsRfPower100Selected}" Content="100 W" Command="{Binding SelectRfPowerPresetCommand}" CommandParameter="100" />
                     </StackPanel>
-                    <Slider Grid.Column="1" Minimum="5" Maximum="{Binding MaximumRfPower}" Value="{Binding RfPowerSliderValue, Mode=TwoWay}"
-                            TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1"
-                            IsEnabled="{Binding CanSetRfPower}" HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                            PointerReleased="OnRfPowerSliderPointerReleased" KeyUp="OnRfPowerSliderKeyUp" />
-                    <TextBlock Grid.Column="2" Text="{Binding RfPowerReading}" FontSize="25" FontWeight="Bold" MinWidth="90" TextAlignment="Right" VerticalAlignment="Center" />
+                    <ProgressBar Grid.Column="1" Value="{Binding RfPowerBarValue}" Maximum="{Binding MaximumRfPower}" Height="18" CornerRadius="9" Margin="0,0,16,0"
+                                 Foreground="#FFFFFF" Background="#263132" HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding RfPowerReading}" Foreground="#FFFFFF" FontSize="30"
+                               FontWeight="Bold" TextAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock.RenderTransform><TranslateTransform Y="-2" /></TextBlock.RenderTransform>
+                    </TextBlock>
+                    <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right"
+                                Classes="rf-power-warning" Classes.active="{Binding IsRfPowerWarning}" IsVisible="{Binding IsRfPowerWarning}">
+                        <TextBlock Text="{Binding RfPowerOverLimitReading}" Foreground="#FFDC00" FontSize="12" FontWeight="Bold" />
+                        <TextBlock Text="{DynamicResource HfPowerOverLimit}" Foreground="#FFDC00" FontSize="12" FontWeight="Bold" />
+                    </StackPanel>
                 </Grid>
                 <TextBlock Grid.Row="2" Text="{DynamicResource SettingsTitle}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" Margin="0,8,0,0" />
                 <Grid Grid.Row="3" ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="32">
