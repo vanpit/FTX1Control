@@ -17,9 +17,9 @@ public static class LanguageService
     private static readonly (string Key, string Polish, string English)[] UiStrings =
     {
         ("WindowTitle", "FTX-1 | Sterowanie CAT", "FTX-1 | CAT Control"),
-        ("HeaderEyebrow", "FTX-1  /  STEROWANIE CAT", "FTX-1  /  CAT CONTROL"),
-        ("HeaderTitle", "Yaesu FTX-1 Panel Sterowania", "Yaesu FTX-1 Control Panel"),
+        ("HeaderTitle", "Panel sterowania", "Control panel"),
         ("AlwaysOnTop", "Zawsze na wierzchu", "Always on top"),
+        ("SettingsButton", "Ustawienia", "Settings"),
         ("ConnectionTitle", "POŁĄCZENIE", "CONNECTION"),
         ("SerialPortLabel", "PORT SZEREGOWY", "SERIAL PORT"),
         ("BaudRateLabel", "PRĘDKOŚĆ ŁĄCZA", "BAUD RATE"),

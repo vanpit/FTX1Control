@@ -152,6 +152,7 @@ public partial class MainViewModel : ViewModelBase
 
     private string _connectionStatus = "NIEPOŁĄCZONY";
     private string _statusMessage = string.Empty;
+    private bool _isStatusMessageError;
     private string _catLogFileError = string.Empty;
 
     [ObservableProperty]
@@ -306,19 +307,27 @@ public partial class MainViewModel : ViewModelBase
     public string StatusMessage
     {
         get => LanguageService.TranslateStatus(_catTimeoutMessage ?? _statusMessage);
-        set
-        {
-            if (_statusMessage == value)
-            {
-                return;
-            }
+        set => SetStatusMessage(value, isError: false);
+    }
 
-            _statusMessage = value;
-            OnPropertyChanged();
+    private void SetStatusMessage(string message, bool isError)
+    {
+        if (_statusMessage != message)
+        {
+            _statusMessage = message;
+            OnPropertyChanged(nameof(StatusMessage));
+        }
+
+        if (_isStatusMessageError != isError)
+        {
+            _isStatusMessageError = isError;
+            OnPropertyChanged(nameof(StatusMessageBrush));
         }
     }
 
-    public IBrush StatusMessageBrush => _catTimeoutMessage is null
+    private void SetStatusError(string message) => SetStatusMessage(message, isError: true);
+
+    public IBrush StatusMessageBrush => _catTimeoutMessage is null && !_isStatusMessageError
         ? new ImmutableSolidColorBrush(Color.FromRgb(195, 206, 202))
         : new ImmutableSolidColorBrush(Color.FromRgb(231, 76, 60));
 
@@ -643,9 +652,10 @@ public partial class MainViewModel : ViewModelBase
             else
             {
                 ConnectionStatus = "NIEPOŁĄCZONY";
-                StatusMessage = disconnectErrors.Count == 0
+                SetStatusMessage(disconnectErrors.Count == 0
                     ? string.Empty
-                    : $"Nie udało się prawidłowo rozłączyć: {string.Join(" ", disconnectErrors)}";
+                    : $"Nie udało się prawidłowo rozłączyć: {string.Join(" ", disconnectErrors)}",
+                    isError: disconnectErrors.Count > 0);
             }
         }
         finally
@@ -732,7 +742,7 @@ public partial class MainViewModel : ViewModelBase
         {
             AvailableComPorts.Clear();
             SelectedComPort = null;
-            StatusMessage = "Skanowanie portów CAT jest dostępne tylko w systemie Windows.";
+            SetStatusError("Skanowanie portów CAT jest dostępne tylko w systemie Windows.");
             return;
         }
 
@@ -752,7 +762,7 @@ public partial class MainViewModel : ViewModelBase
 
             if (SelectedComPort is null)
             {
-                StatusMessage = "Nie wykryto portu CAT Silicon Labs typu Enhanced ani Standard.";
+                SetStatusError("Nie wykryto portu CAT Silicon Labs typu Enhanced ani Standard.");
             }
         }
         catch (Exception exception) when (
@@ -765,7 +775,7 @@ public partial class MainViewModel : ViewModelBase
             Trace.TraceError($"Unable to scan CAT COM ports: {exception}");
             AvailableComPorts.Clear();
             SelectedComPort = null;
-            StatusMessage = $"Nie udało się zeskanować portów COM: {exception.Message}";
+            SetStatusError($"Nie udało się zeskanować portów COM: {exception.Message}");
         }
     }
 
@@ -896,7 +906,7 @@ public partial class MainViewModel : ViewModelBase
                     {
                         connectionErrors.Add($"Nie udało się odczytać niektórych limitów mocy: {powerWarning}");
                     }
-                    StatusMessage = string.Join(" ", connectionErrors);
+                    SetStatusMessage(string.Join(" ", connectionErrors), isError: connectionErrors.Count > 0);
                     StartTransmitMeterPolling();
                     StartFuncKnobPolling();
                     _ = RequestDLevelForCurrentFrequencyAsync();
@@ -910,8 +920,8 @@ public partial class MainViewModel : ViewModelBase
                     catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or SecurityException)
                     {
                         Trace.TraceError($"Unable to save the connection settings: {exception}");
-                        StatusMessage = string.Join(" ", new[] { _statusMessage, $"Nie udało się zapisać ustawień połączenia: {exception.Message}" }
-                            .Where(message => !string.IsNullOrEmpty(message)));
+                        SetStatusError(string.Join(" ", new[] { _statusMessage, $"Nie udało się zapisać ustawień połączenia: {exception.Message}" }
+                            .Where(message => !string.IsNullOrEmpty(message))));
                     }
                     return;
                 }
@@ -945,13 +955,13 @@ public partial class MainViewModel : ViewModelBase
                     if (attempt < maximumAttempts)
                     {
                         ConnectionStatus = "ŁĄCZENIE";
-                        StatusMessage = $"Nie udało się połączyć: {errorMessage} Ponawianie...";
+                        SetStatusError($"Nie udało się połączyć: {errorMessage} Ponawianie...");
                         await Task.Delay(750 * attempt);
                         continue;
                     }
 
                     ConnectionStatus = "BŁĄD POŁĄCZENIA";
-                    StatusMessage = errorMessage;
+                    SetStatusError(errorMessage);
                 }
             }
         }
@@ -1047,7 +1057,7 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             DLevel = null;
-            StatusMessage = $"Nie udało się ustawić D-LEVEL: {exception.Message}";
+            SetStatusError($"Nie udało się ustawić D-LEVEL: {exception.Message}");
         }
         finally
         {
@@ -1067,7 +1077,7 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             DLevel = null;
-            StatusMessage = $"Nie udało się odczytać D-LEVEL: {exception.Message}";
+            SetStatusError($"Nie udało się odczytać D-LEVEL: {exception.Message}");
         }
     }
 
@@ -1098,7 +1108,7 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             NoiseBlankerLevel = null;
-            StatusMessage = $"Nie udało się ustawić poziomu NB: {exception.Message}";
+            SetStatusError($"Nie udało się ustawić poziomu NB: {exception.Message}");
         }
         finally
         {
@@ -1134,7 +1144,7 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             DigitalNoiseReductionLevel = null;
-            StatusMessage = $"Nie udało się ustawić poziomu DNR: {exception.Message}";
+            SetStatusError($"Nie udało się ustawić poziomu DNR: {exception.Message}");
         }
         finally
         {
@@ -1156,7 +1166,7 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             NoiseBlankerLevel = null;
-            StatusMessage = $"Nie udało się odczytać poziomu NB: {exception.Message}";
+            SetStatusError($"Nie udało się odczytać poziomu NB: {exception.Message}");
         }
 
         try
@@ -1169,7 +1179,7 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
             DigitalNoiseReductionLevel = null;
-            StatusMessage = $"Nie udało się odczytać poziomu DNR: {exception.Message}";
+            SetStatusError($"Nie udało się odczytać poziomu DNR: {exception.Message}");
         }
     }
 
@@ -1222,7 +1232,7 @@ public partial class MainViewModel : ViewModelBase
             {
                 if (IsConnected)
                 {
-                    StatusMessage = $"Błąd odczytu mierników CAT: {exception.Message}";
+                    SetStatusError($"Błąd odczytu mierników CAT: {exception.Message}");
                 }
             });
         }
@@ -1279,7 +1289,7 @@ public partial class MainViewModel : ViewModelBase
             {
                 if (IsConnected)
                 {
-                    StatusMessage = $"Błąd odczytu funkcji pokrętła FUNC CAT: {exception.Message}";
+                    SetStatusError($"Błąd odczytu funkcji pokrętła FUNC CAT: {exception.Message}");
                 }
             });
         }
@@ -1390,7 +1400,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
-            StatusMessage = $"Nie udało się ustawić funkcji pokrętła FUNC: {exception.Message}";
+            SetStatusError($"Nie udało się ustawić funkcji pokrętła FUNC: {exception.Message}");
         }
     }
 
@@ -1428,7 +1438,7 @@ public partial class MainViewModel : ViewModelBase
         {
             if (IsConnected)
             {
-                StatusMessage = $"Błąd odbioru Auto Information CAT: {exception.Message}";
+                SetStatusError($"Błąd odbioru Auto Information CAT: {exception.Message}");
             }
         });
     }
@@ -1993,7 +2003,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (InvalidDataException exception)
         {
-            StatusMessage = $"Błąd danych Auto Information CAT: {exception.Message}";
+            SetStatusError($"Błąd danych Auto Information CAT: {exception.Message}");
         }
     }
 
@@ -2402,7 +2412,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
         {
-            StatusMessage = $"Nie udało się w pełni ustawić częstotliwości i modulacji {(vfo == 0 ? "MAIN" : "SUB")}: {exception.Message}";
+            SetStatusError($"Nie udało się w pełni ustawić częstotliwości i modulacji {(vfo == 0 ? "MAIN" : "SUB")}: {exception.Message}");
         }
     }
 
@@ -2673,7 +2683,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
-            StatusMessage = $"Nie udało się odczytać mocy RF: {exception.Message}";
+            SetStatusError($"Nie udało się odczytać mocy RF: {exception.Message}");
         }
         finally
         {
@@ -2726,7 +2736,7 @@ public partial class MainViewModel : ViewModelBase
             var actual = await completion.Task.WaitAsync(TimeSpan.FromSeconds(2), cancellation.Token);
             if (actual != watts)
             {
-                StatusMessage = $"Radio ustawiło {actual} W zamiast żądanych {watts} W.";
+                SetStatusError($"Radio ustawiło {actual} W zamiast żądanych {watts} W.");
             }
         }
         catch (OperationCanceledException)
@@ -2734,7 +2744,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
-            StatusMessage = $"Nie udało się potwierdzić mocy RF: {exception.Message}";
+            SetStatusError($"Nie udało się potwierdzić mocy RF: {exception.Message}");
         }
         finally
         {
@@ -2778,7 +2788,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception exception)
         {
-            StatusMessage = $"Nie udało się ustawić głośności {(vfo == 0 ? "MAIN" : "SUB")}: {exception.Message}";
+            SetStatusError($"Nie udało się ustawić głośności {(vfo == 0 ? "MAIN" : "SUB")}: {exception.Message}");
         }
     }
 
@@ -2814,7 +2824,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException or InvalidDataException)
         {
-            StatusMessage = $"Nie udało się potwierdzić trybu AVG/PEAK: {exception.Message}";
+            SetStatusError($"Nie udało się potwierdzić trybu AVG/PEAK: {exception.Message}");
         }
         finally
         {
@@ -2840,7 +2850,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException)
         {
-            StatusMessage = $"Nie udało się uruchomić strojenia anteny: {exception.Message}";
+            SetStatusError($"Nie udało się uruchomić strojenia anteny: {exception.Message}");
         }
     }
 
@@ -2873,7 +2883,7 @@ public partial class MainViewModel : ViewModelBase
     private static IBrush GetVfoStateBrush(bool isTransmitVfo) =>
         new SolidColorBrush(isTransmitVfo
             ? Color.FromRgb(229, 57, 53)
-            : Color.FromRgb(182, 214, 108));
+            : Color.FromRgb(0, 221, 245));
 
     private static IBrush GetFrequencyBrush(bool isTransmittingVfo, bool isReceiveVfo) =>
         isTransmittingVfo
@@ -2928,7 +2938,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception exception)
         {
-            StatusMessage = exception.Message;
+            SetStatusError(exception.Message);
         }
 
         UpdateMeterSelection(MainMeters, _mainMeterCode);

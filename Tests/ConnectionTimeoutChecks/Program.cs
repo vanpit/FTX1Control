@@ -20,6 +20,32 @@ var wasEnglish = LanguageService.IsEnglish;
 try
 {
     LanguageService.SetLanguage(0, savePreference: false);
+    if (viewModel.StatusMessage == "Nie wykryto portu CAT Silicon Labs typu Enhanced ani Standard.")
+    {
+        Assert(((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(231, 76, 60),
+            "The missing port message is not red.");
+    }
+
+    var statusError = typeof(MainViewModel).GetMethod("SetStatusError", PrivateInstance)!;
+    var brushChanges = 0;
+    viewModel.PropertyChanged += (_, e) =>
+    {
+        if (e.PropertyName == nameof(MainViewModel.StatusMessageBrush)) brushChanges++;
+    };
+    viewModel.StatusMessage = "Test status";
+    statusError.Invoke(viewModel, new object[] { "Test status" });
+    Assert(((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(231, 76, 60),
+        "An error with unchanged text is not red.");
+    Assert(brushChanges >= 1, "Changing status severity did not notify the UI.");
+    statusError.Invoke(viewModel, new object[] { "Nie wykryto portu CAT Silicon Labs typu Enhanced ani Standard." });
+    LanguageService.SetLanguage(1, savePreference: false);
+    Assert(viewModel.StatusMessage.StartsWith("No Silicon Labs", StringComparison.Ordinal)
+        && ((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(231, 76, 60),
+        "The translated missing port message is not red.");
+    viewModel.StatusMessage = "Wybierz wykryty port COM Silicon Labs.";
+    Assert(((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(195, 206, 202),
+        "An informational message did not restore the normal color.");
+    LanguageService.SetLanguage(0, savePreference: false);
     typeof(MainViewModel).GetField("_catOperationsCancellation", PrivateInstance)!
         .SetValue(viewModel, new CancellationTokenSource());
     viewModel.IsConnected = true;

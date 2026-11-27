@@ -2,16 +2,101 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:FTX1Control.ViewModels"
         xmlns:models="using:FTX1Control.Models"
+        xmlns:converters="using:Avalonia.Data.Converters"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1156" d:DesignHeight="1010"
         x:Class="FTX1Control.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Topmost="{Binding IsAlwaysOnTop}"
+        ExtendClientAreaToDecorationsHint="True"
         Width="1156" Height="1010" MinWidth="1000" MinHeight="1010" WindowStartupLocation="Manual"
-        Background="#080D0E"
+        RequestedThemeVariant="Dark"
         Icon="/Assets/ftx1-radio.ico"
         Title="{DynamicResource WindowTitle}">
+
+    <Window.Background>
+        <RadialGradientBrush Center="42%,0%" GradientOrigin="42%,0%" RadiusX="35%" RadiusY="30%">
+            <GradientStop Color="#0C2337" Offset="0" />
+            <GradientStop Color="#0B1E2D" Offset="0.35" />
+            <GradientStop Color="#08131B" Offset="0.75" />
+            <GradientStop Color="#070F14" Offset="1" />
+        </RadialGradientBrush>
+    </Window.Background>
+
+    <Window.Resources>
+        <StreamGeometry x:Key="VfoSignalWaves">M 5.5,5.3 C 1.8,9 1.8,15 5.5,18.7 M 8.5,8.5 C 6.7,10.4 6.7,13.6 8.5,15.5 M 15.5,8.5 C 17.3,10.4 17.3,13.6 15.5,15.5 M 18.5,5.3 C 22.2,9 22.2,15 18.5,18.7</StreamGeometry>
+        <LinearGradientBrush x:Key="PanelBackground" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Color="#1C2932" Offset="0" />
+            <GradientStop Color="#111A20" Offset="0.55" />
+            <GradientStop Color="#15232D" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="PanelBorder" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#788D9B" Offset="0" />
+            <GradientStop Color="#465A67" Offset="0.45" />
+            <GradientStop Color="#283844" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="PopupBorder" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#A2B8C6" Offset="0" />
+            <GradientStop Color="#718493" Offset="0.45" />
+            <GradientStop Color="#465B68" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="ButtonBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#2A3943" Offset="0" />
+            <GradientStop Color="#1B252D" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="ActiveButtonBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#00A5FA" Offset="0" />
+            <GradientStop Color="#0067D4" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="MainVfoBorder" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Color="#668A2C" Offset="0" />
+            <GradientStop Color="#668A2C" Offset="0.5" />
+            <GradientStop Color="#BFF730" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="SubVfoBorder" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Color="#377589" Offset="0" />
+            <GradientStop Color="#377589" Offset="0.5" />
+            <GradientStop Color="#00DBF4" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TransmitVfoBorder" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Color="#AE3028" Offset="0" />
+            <GradientStop Color="#AE3028" Offset="0.5" />
+            <GradientStop Color="#FA4C40" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="VfoBottomGlowMask" StartPoint="0%,0%" EndPoint="100%,0%">
+            <GradientStop Color="#20000000" Offset="0" />
+            <GradientStop Color="#D0000000" Offset="1" />
+        </LinearGradientBrush>
+        <RadialGradientBrush x:Key="MainVfoCorner" Center="0%,0%" GradientOrigin="0%,0%" RadiusX="65%" RadiusY="85%">
+            <GradientStop Color="#D0FF32" Offset="0" />
+            <GradientStop Color="#00D0FF32" Offset="1" />
+        </RadialGradientBrush>
+        <RadialGradientBrush x:Key="SubVfoCorner" Center="0%,0%" GradientOrigin="0%,0%" RadiusX="65%" RadiusY="85%">
+            <GradientStop Color="#00F0FF" Offset="0" />
+            <GradientStop Color="#0000F0FF" Offset="1" />
+        </RadialGradientBrush>
+        <RadialGradientBrush x:Key="TransmitVfoCorner" Center="0%,0%" GradientOrigin="0%,0%" RadiusX="65%" RadiusY="85%">
+            <GradientStop Color="#FF4138" Offset="0" />
+            <GradientStop Color="#00FF4138" Offset="1" />
+        </RadialGradientBrush>
+        <RadialGradientBrush x:Key="MainVfoCornerGlow" Center="0%,0%" GradientOrigin="0%,0%" RadiusX="26%" RadiusY="32%">
+            <GradientStop Color="#25B7FA24" Offset="0" />
+            <GradientStop Color="#00B7FA24" Offset="1" />
+        </RadialGradientBrush>
+        <RadialGradientBrush x:Key="SubVfoCornerGlow" Center="0%,0%" GradientOrigin="0%,0%" RadiusX="26%" RadiusY="32%">
+            <GradientStop Color="#2500E6FF" Offset="0" />
+            <GradientStop Color="#0000E6FF" Offset="1" />
+        </RadialGradientBrush>
+        <RadialGradientBrush x:Key="TransmitVfoCornerGlow" Center="0%,0%" GradientOrigin="0%,0%" RadiusX="26%" RadiusY="32%">
+            <GradientStop Color="#28FF5049" Offset="0" />
+            <GradientStop Color="#00FF5049" Offset="1" />
+        </RadialGradientBrush>
+        <RadialGradientBrush x:Key="VfoTopRightShade" Center="100%,0%" GradientOrigin="100%,0%" RadiusX="32%" RadiusY="38%">
+            <GradientStop Color="#60151F27" Offset="0" />
+            <GradientStop Color="#00151F27" Offset="1" />
+        </RadialGradientBrush>
+    </Window.Resources>
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
@@ -25,21 +110,23 @@
             <Setter Property="Foreground" Value="#E9EFED" />
         </Style>
         <Style Selector="TextBox">
-            <Setter Property="Background" Value="#20292A" />
+            <Setter Property="Background" Value="#202D36" />
             <Setter Property="Foreground" Value="#F0F4F2" />
-            <Setter Property="BorderBrush" Value="#3B4948" />
+            <Setter Property="BorderBrush" Value="#52616E" />
             <Setter Property="Padding" Value="12,9" />
         </Style>
         <Style Selector="ComboBox">
-            <Setter Property="Background" Value="#20292A" />
+            <Setter Property="Background" Value="#202D36" />
             <Setter Property="Foreground" Value="#F0F4F2" />
-            <Setter Property="BorderBrush" Value="#3B4948" />
+            <Setter Property="BorderBrush" Value="#52616E" />
             <Setter Property="Padding" Value="12,9" />
             <Setter Property="Height" Value="40" />
         </Style>
         <Style Selector="Button.connect">
-            <Setter Property="Background" Value="#D59A42" />
-            <Setter Property="Foreground" Value="#171B19" />
+            <Setter Property="Background" Value="{StaticResource ActiveButtonBackground}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#00A9F5" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Padding" Value="20,10" />
             <Setter Property="CornerRadius" Value="5" />
@@ -53,9 +140,9 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="ToggleButton.meter">
-            <Setter Property="Background" Value="#20292A" />
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}" />
             <Setter Property="Foreground" Value="#D5DEDA" />
-            <Setter Property="BorderBrush" Value="#3B4948" />
+            <Setter Property="BorderBrush" Value="#40515D" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -68,17 +155,22 @@
             <Setter Property="CornerRadius" Value="4" />
         </Style>
         <Style Selector="ToggleButton.meter:checked">
-            <Setter Property="Background" Value="#B6D66C" />
-            <Setter Property="Foreground" Value="#172018" />
-            <Setter Property="BorderBrush" Value="#B6D66C" />
+            <Setter Property="Background" Value="{StaticResource ActiveButtonBackground}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#00A9F5" />
+        </Style>
+        <Style Selector="Border.main-vfo ToggleButton.meter:checked">
+            <Setter Property="Background" Value="#9BE332" />
+            <Setter Property="Foreground" Value="#10200C" />
+            <Setter Property="BorderBrush" Value="#B4F556" />
         </Style>
         <Style Selector="ToggleButton.meter:pointerover">
-            <Setter Property="BorderBrush" Value="#D59A42" />
+            <Setter Property="BorderBrush" Value="#6B8393" />
         </Style>
         <Style Selector="Button.detector">
-            <Setter Property="Background" Value="#20292A" />
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}" />
             <Setter Property="Foreground" Value="#D5DEDA" />
-            <Setter Property="BorderBrush" Value="#3B4948" />
+            <Setter Property="BorderBrush" Value="#40515D" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="Bold" />
@@ -86,28 +178,28 @@
             <Setter Property="CornerRadius" Value="4" />
         </Style>
         <Style Selector="Button.detector.selected">
-            <Setter Property="Background" Value="#B6D66C" />
-            <Setter Property="Foreground" Value="#172018" />
-            <Setter Property="BorderBrush" Value="#B6D66C" />
+            <Setter Property="Background" Value="{StaticResource ActiveButtonBackground}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#00A9F5" />
         </Style>
         <Style Selector="Button.detector.rf-power">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="10,9" />
         </Style>
         <Style Selector="Button.detector.tune:not(:disabled)">
-            <Setter Property="Background" Value="#D59A42" />
-            <Setter Property="Foreground" Value="#171B19" />
-            <Setter Property="BorderBrush" Value="#D59A42" />
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}" />
+            <Setter Property="Foreground" Value="#F0F4F2" />
+            <Setter Property="BorderBrush" Value="#52616E" />
         </Style>
         <Style Selector="Button.connect:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, Button.detector.tune:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#EFB665" />
-            <Setter Property="Foreground" Value="#171B19" />
-            <Setter Property="BorderBrush" Value="#EFB665" />
+            <Setter Property="Background" Value="#168FE3" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#55C7FF" />
         </Style>
         <Style Selector="Button.pinned-frequency">
-            <Setter Property="Background" Value="#20292A" />
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}" />
             <Setter Property="Foreground" Value="#D5DEDA" />
-            <Setter Property="BorderBrush" Value="#3B4948" />
+            <Setter Property="BorderBrush" Value="#40515D" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontFamily" Value="Consolas" />
             <Setter Property="FontSize" Value="14" />
@@ -121,9 +213,9 @@
             <Setter Property="CornerRadius" Value="4" />
         </Style>
         <Style Selector="Button.pinned-frequency.pin">
-            <Setter Property="Background" Value="#B6D66C" />
-            <Setter Property="Foreground" Value="#172018" />
-            <Setter Property="BorderBrush" Value="#B6D66C" />
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}" />
+            <Setter Property="Foreground" Value="#F0F4F2" />
+            <Setter Property="BorderBrush" Value="#52616E" />
         </Style>
         <Style Selector="Button.pinned-frequency.pin /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -136,22 +228,22 @@
             <Setter Property="BorderThickness" Value="1" />
         </Style>
         <Style Selector="Button.pinned-frequency.selected, Button.detector.rf-power-selected">
-            <Setter Property="Background" Value="#328ACB" />
+            <Setter Property="Background" Value="{StaticResource ActiveButtonBackground}" />
             <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#328ACB" />
+            <Setter Property="BorderBrush" Value="#00A9F5" />
         </Style>
         <Style Selector="Button.pinned-frequency:pointerover">
-            <Setter Property="BorderBrush" Value="#D59A42" />
+            <Setter Property="BorderBrush" Value="#6B8393" />
         </Style>
         <Style Selector="Button.detector.selected:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, Button.pinned-frequency.pin:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#CDEB85" />
-            <Setter Property="Foreground" Value="#172018" />
-            <Setter Property="BorderBrush" Value="#CDEB85" />
+            <Setter Property="Background" Value="#168FE3" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#55C7FF" />
         </Style>
         <Style Selector="ToggleButton.auto-scroll">
-            <Setter Property="Background" Value="#20292A" />
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}" />
             <Setter Property="Foreground" Value="#D5DEDA" />
-            <Setter Property="BorderBrush" Value="#3B4948" />
+            <Setter Property="BorderBrush" Value="#40515D" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontSize" Value="10" />
             <Setter Property="FontWeight" Value="Bold" />
@@ -159,31 +251,47 @@
             <Setter Property="CornerRadius" Value="3" />
         </Style>
         <Style Selector="ToggleButton.auto-scroll:checked">
-            <Setter Property="Background" Value="#28352D" />
-            <Setter Property="Foreground" Value="#B6D66C" />
-            <Setter Property="BorderBrush" Value="#B6D66C" />
+            <Setter Property="Background" Value="{StaticResource ActiveButtonBackground}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#00A9F5" />
         </Style>
-        <Style Selector="ToggleButton.always-on-top">
-            <Setter Property="Background" Value="#20292A" />
+        <Style Selector="Button.settings">
+            <Setter Property="Background" Value="#202D36" />
             <Setter Property="Foreground" Value="#D5DEDA" />
-            <Setter Property="BorderBrush" Value="#3B4948" />
+            <Setter Property="BorderBrush" Value="#52616E" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Height" Value="44" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="CornerRadius" Value="4" />
         </Style>
-        <Style Selector="ToggleButton.always-on-top:checked">
-            <Setter Property="Background" Value="#28352D" />
-            <Setter Property="Foreground" Value="#B6D66C" />
-            <Setter Property="BorderBrush" Value="#B6D66C" />
-        </Style>
-        <Style Selector="ToggleButton.meter:checked:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.auto-scroll:checked:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.always-on-top:checked:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, Button.pinned-frequency.selected:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, Button.detector.rf-power-selected:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#489CDA" />
+        <Style Selector="ToggleButton.meter:checked:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.auto-scroll:checked:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, Button.pinned-frequency.selected:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, Button.detector.rf-power-selected:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#168FE3" />
             <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#489CDA" />
+            <Setter Property="BorderBrush" Value="#55C7FF" />
+        </Style>
+        <Style Selector="Border.main-vfo ToggleButton.meter:checked:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#B4F556" />
+            <Setter Property="Foreground" Value="#10200C" />
+            <Setter Property="BorderBrush" Value="#CBFF82" />
+        </Style>
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="{StaticResource PanelBackground}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+        </Style>
+        <Style Selector="FlyoutPresenter.settings-popup">
+            <Setter Property="Background" Value="{StaticResource PanelBackground}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PopupBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="16,12" />
+        </Style>
+        <Style Selector="Border.panel, Border.vfo-frame, FlyoutPresenter.settings-popup /template/ Border#LayoutRoot">
+            <Setter Property="BoxShadow" Value="0 3 6 0 #80000000, inset 0 1 1 0 #50B5C9D6, inset 0 -1 1 0 #8004090E" />
         </Style>
         <Style Selector="Border.transmit-status">
             <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundChecked}" />
@@ -201,14 +309,26 @@
                 </Animation>
             </Style.Animations>
         </Style>
-        <Style Selector="Border.vfo-frame.transmitting">
+        <Style Selector="Border.vfo-glow.transmitting">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.vfo-top-right">
+            <Setter Property="BorderBrush" Value="{StaticResource VfoTopRightShade}" />
+            <Setter Property="BorderThickness" Value="0,1.5,1.5,0" />
+            <Setter Property="CornerRadius" Value="9" />
+        </Style>
+        <Style Selector="Border.vfo-transmit-overlay">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.vfo-transmit-overlay.transmitting">
+            <Setter Property="IsVisible" Value="True" />
             <Style.Animations>
                 <Animation Duration="0:0:0.8" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
                     <KeyFrame Cue="0%">
-                        <Setter Property="BorderBrush" Value="#E53935" />
+                        <Setter Property="Opacity" Value="1" />
                     </KeyFrame>
                     <KeyFrame Cue="100%">
-                        <Setter Property="BorderBrush" Value="#851B19" />
+                        <Setter Property="Opacity" Value="0.7" />
                     </KeyFrame>
                 </Animation>
             </Style.Animations>
@@ -219,13 +339,38 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="*,Auto">
+    <Grid>
+    <Border VerticalAlignment="Top"
+            Height="{Binding $parent[Window].WindowDecorationMargin.Top}"
+            Background="#0CFFFFFF" BorderBrush="#34434F" BorderThickness="0,0,0,1"
+            WindowDecorationProperties.ElementRole="TitleBar" />
+    <Grid RowDefinitions="*,Auto" Margin="{Binding $parent[Window].WindowDecorationMargin}">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="22.5,24" RowSpacing="18">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" VerticalAlignment="Center" Margin="0,0,0,6">
-            <TextBlock Text="{DynamicResource HeaderEyebrow}" FontSize="12" FontWeight="Bold" Foreground="#B6D66C" />
-            <TextBlock Grid.Row="1" Text="{DynamicResource HeaderTitle}" FontSize="30" FontWeight="Bold" VerticalAlignment="Center" />
-            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" VerticalAlignment="Center" Margin="0,0,0,6">
+            <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,12,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Viewbox Width="44" Height="24" Margin="0,0,9,0">
+                        <Grid Width="40" Height="22">
+                            <Path Data="M0,19 L11,4 L16,4 L5,19 Z" Fill="#00C9F5" />
+                            <Path Data="M11,19 L23,4 L28,4 L16,19 Z" Fill="#00A7E7" />
+                            <Path Data="M23,19 L35,4 L40,4 L28,19 Z" Fill="#1477B5" />
+                        </Grid>
+                    </Viewbox>
+                    <TextBlock FontSize="34" FontWeight="Bold" Foreground="#D7E1EE" VerticalAlignment="Center">
+                        <Run Text="Yaesu" /><Run Text="&#x20;FTX-1" Foreground="#3DB5F0" />
+                    </TextBlock>
+                    <Border Width="1" Height="29" Background="#9AAABD" Margin="16,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource HeaderTitle}" FontSize="23" Foreground="#C8D4E3" VerticalAlignment="Center" />
+                </StackPanel>
+            </Viewbox>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Border Height="44" Background="#202D36" BorderBrush="#52616E" BorderThickness="1" CornerRadius="4" Padding="12,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Ellipse Width="8" Height="8" Fill="{Binding ConnectionIndicatorBrush}" />
+                        <TextBlock Text="{Binding ConnectionStatus}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
                 <ComboBox Width="140" Height="44" SelectedIndex="{Binding SelectedLanguageIndex, Mode=TwoWay}" VerticalAlignment="Center">
                     <ComboBoxItem AutomationProperties.Name="Polski">
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -248,25 +393,33 @@
                         </StackPanel>
                     </ComboBoxItem>
                 </ComboBox>
-                <ToggleButton Classes="always-on-top"
-                              Content="{DynamicResource AlwaysOnTop}"
-                              IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}"
-                              VerticalAlignment="Center" />
-                <Border Height="44" Background="#20292A" BorderBrush="#3B4948" BorderThickness="1" CornerRadius="4" Padding="12,8">
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Ellipse Width="8" Height="8" Fill="{Binding ConnectionIndicatorBrush}" />
-                        <TextBlock Text="{Binding ConnectionStatus}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                <Button Classes="settings" AutomationProperties.Name="{DynamicResource SettingsButton}" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Viewbox Width="16" Height="16" VerticalAlignment="Center" IsHitTestVisible="False">
+                            <Grid Width="24" Height="24">
+                                <Path Data="M10,1 L14,1 L14.5,3.3 L16.5,4.1 L18.5,2.8 L21.2,5.5 L19.9,7.5 L20.7,9.5 L23,10 L23,14 L20.7,14.5 L19.9,16.5 L21.2,18.5 L18.5,21.2 L16.5,19.9 L14.5,20.7 L14,23 L10,23 L9.5,20.7 L7.5,19.9 L5.5,21.2 L2.8,18.5 L4.1,16.5 L3.3,14.5 L1,14 L1,10 L3.3,9.5 L4.1,7.5 L2.8,5.5 L5.5,2.8 L7.5,4.1 L9.5,3.3 Z"
+                                      Stroke="#D5DEDA" StrokeThickness="1.5" StrokeJoin="Round" />
+                                <Ellipse Width="7" Height="7" Stroke="#D5DEDA" StrokeThickness="1.5" />
+                            </Grid>
+                        </Viewbox>
+                        <TextBlock Text="{DynamicResource SettingsButton}" FontSize="13" FontWeight="Bold" Foreground="#D5DEDA" VerticalAlignment="Center" />
                     </StackPanel>
-                </Border>
+                    <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="settings-popup">
+                            <CheckBox Content="{DynamicResource AlwaysOnTop}" IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
             </StackPanel>
-            <Image Grid.RowSpan="2" Grid.Column="2" Source="/Assets/SQ8MSX_round_logo_QRZ.png" Width="96" Height="96" Margin="18,0,0,0" Stretch="Uniform" VerticalAlignment="Center" />
+            <Border Grid.Column="2" Width="1" Height="29" Background="#9AAABD" Margin="9,0" VerticalAlignment="Center" />
+            <Image Grid.Column="3" Source="/Assets/SQ8MSX_round_logo_QRZ.png" Width="96" Height="96" Stretch="Uniform" VerticalAlignment="Center" />
         </Grid>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="13.5">
-            <Border Background="#151D20" BorderBrush="#D59A42" BorderThickness="4,1,1,1" CornerRadius="5" Padding="14,11">
+            <Border Classes="panel" Padding="17,11,14,11">
                 <Grid RowDefinitions="Auto,*" RowSpacing="8">
                     <Grid MinHeight="32">
-                        <TextBlock Text="{DynamicResource ConnectionTitle}" FontSize="10" FontWeight="Bold" Foreground="#D59A42" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource ConnectionTitle}" FontSize="10" FontWeight="Bold" Foreground="#D7E1EC" VerticalAlignment="Center" />
                     </Grid>
                     <Grid Grid.Row="1" ColumnDefinitions="*,150,Auto" ColumnSpacing="12" VerticalAlignment="Center">
                         <StackPanel Spacing="6" HorizontalAlignment="Stretch">
@@ -287,24 +440,26 @@
                     </Grid>
                 </Grid>
             </Border>
-            <Border Grid.Column="1" Background="#151D20" BorderBrush="#D59A42" BorderThickness="4,1,1,1" CornerRadius="5" Padding="14,11">
+            <Border Grid.Column="1" Classes="panel" Padding="17,11,14,11">
                 <Grid RowDefinitions="Auto,Auto,56" RowSpacing="8">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                        <TextBlock Text="{DynamicResource CatStatus}" FontSize="10" FontWeight="Bold" Foreground="#D59A42" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource CatStatus}" FontSize="10" FontWeight="Bold" Foreground="#D7E1EC" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="{Binding StatusMessageBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                         <ToggleButton Grid.Column="2" Classes="auto-scroll" IsChecked="{Binding IsCatLogAutoScroll}" Content="{Binding CatLogAutoScrollButtonText}" VerticalAlignment="Center" />
                     </Grid>
                     <TextBlock Grid.Row="1" Text="{Binding CatLogFileError}" IsVisible="{Binding HasCatLogFileError}" FontSize="12" Foreground="#E74C3C" TextWrapping="Wrap" />
-                    <ScrollViewer x:Name="CatLogScrollViewer" Grid.Row="2" Background="#000000" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <SelectableTextBlock x:Name="CatLogText" Text="{Binding CatLog}" Margin="12,0" TextWrapping="NoWrap" Foreground="#FFFFFF" FontFamily="Consolas" FontSize="11" LineHeight="14" />
-                    </ScrollViewer>
+                    <Border Grid.Row="2" BorderBrush="#465A67" BorderThickness="1" CornerRadius="6">
+                        <ScrollViewer x:Name="CatLogScrollViewer" Background="Transparent" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <SelectableTextBlock x:Name="CatLogText" Text="{Binding CatLog}" Margin="12,0" TextWrapping="NoWrap" Foreground="#FFFFFF" FontFamily="Consolas" FontSize="11" LineHeight="14" />
+                        </ScrollViewer>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>
 
-        <Border Grid.Row="2" Background="#151D20" BorderBrush="#328ACB" BorderThickness="4,1,1,1" CornerRadius="5" Padding="18">
+        <Border Grid.Row="2" Classes="panel" Padding="21,18,18,18">
             <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
-                <TextBlock Text="{DynamicResource TransmitPowerTitle}" FontSize="13" FontWeight="Bold" Foreground="#B6D66C" />
+                <TextBlock Text="{DynamicResource TransmitPowerTitle}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" />
                 <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Classes="detector rf-power" Classes.rf-power-selected="{Binding IsRfPower5Selected}" Margin="0,0,6,0" Content="5 W" Command="{Binding SelectRfPowerPresetCommand}" CommandParameter="5" />
@@ -322,7 +477,7 @@
                             PointerReleased="OnRfPowerSliderPointerReleased" KeyUp="OnRfPowerSliderKeyUp" />
                     <TextBlock Grid.Column="2" Text="{Binding RfPowerReading}" FontSize="25" FontWeight="Bold" MinWidth="90" TextAlignment="Right" VerticalAlignment="Center" />
                 </Grid>
-                <TextBlock Grid.Row="2" Text="{DynamicResource SettingsTitle}" FontSize="13" FontWeight="Bold" Foreground="#B6D66C" Margin="0,8,0,0" />
+                <TextBlock Grid.Row="2" Text="{DynamicResource SettingsTitle}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" Margin="0,8,0,0" />
                 <Grid Grid.Row="3" ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="32">
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="D-LEVEL" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" VerticalAlignment="Center" />
@@ -364,10 +519,10 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="3" Background="#151D20" BorderBrush="#E53935" BorderThickness="4,1,1,1" CornerRadius="5" Padding="18">
+        <Border Grid.Row="3" Classes="panel" Padding="21,18,18,18">
             <Grid ColumnDefinitions="*,*,*,*,Auto,Auto,Auto" ColumnSpacing="20" VerticalAlignment="Center">
                 <StackPanel Spacing="5" VerticalAlignment="Center">
-                    <TextBlock Text="{DynamicResource TransmitMetersTitle}" FontSize="13" FontWeight="Bold" Foreground="#B6D66C" />
+                    <TextBlock Text="{DynamicResource TransmitMetersTitle}" FontSize="13" FontWeight="Bold" Foreground="#D7E1EC" />
                     <TextBlock Text="{DynamicResource ActiveDuringTx}" FontSize="11" Foreground="#98A8A2" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
@@ -394,15 +549,20 @@
         </Border>
 
         <Grid Grid.Row="4" ColumnDefinitions="*,*" ColumnSpacing="13.5" MinHeight="288">
-            <Border Grid.Column="1" Classes="vfo-frame" Classes.transmitting="{Binding IsMainVfoTransmitting}" Background="#151D20" BorderBrush="#B6D66C" BorderThickness="4,1,1,1" CornerRadius="5" Padding="20">
+            <Border Grid.Column="1" Classes="vfo-frame main-vfo" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource MainVfoBorder}" BorderThickness="1.5" CornerRadius="9" Padding="22.5,19.5,19.5,19.5">
                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
                     <Grid Grid.Column="0" ColumnDefinitions="*,Auto,Auto">
-                        <Border Background="#28352D" CornerRadius="3" Padding="8,5" VerticalAlignment="Center" HorizontalAlignment="Left">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="MAIN VFO" FontSize="22" FontWeight="Bold" Foreground="#B6D66C" />
-                                <TextBlock Text="{Binding MainVfoStateText}" Foreground="{Binding MainVfoStateBrush}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Left">
+                            <Grid Width="24" Height="24">
+                                <Path Data="{StaticResource VfoSignalWaves}" Stroke="#A8ED35" StrokeThickness="1.8" StrokeLineCap="Round" />
+                                <Ellipse Width="4.5" Height="4.5" Fill="#A8ED35" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBlock Text="MAIN VFO" FontSize="22" FontWeight="Bold" Foreground="#E9EFF6" VerticalAlignment="Center" />
+                            <Grid IsVisible="{Binding MainVfoStateText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center">
+                                <Border Background="{Binding MainVfoStateBrush}" BorderBrush="{Binding MainVfoStateBrush}" BorderThickness="1" CornerRadius="4" Opacity="0.3" />
+                                <TextBlock Text="{Binding MainVfoStateText}" Foreground="{Binding MainVfoStateBrush}" FontSize="12" FontWeight="Bold" Padding="7,3" />
+                            </Grid>
+                        </StackPanel>
                         <TextBlock Grid.Column="1" Text="{Binding MainFrequencyDisplay}" FontFamily="Consolas" FontSize="{Binding MainFrequencyFontSize}" FontWeight="Bold" Foreground="{Binding MainFrequencyBrush}" VerticalAlignment="Center" Margin="8,4,8,0" />
                         <Border Grid.Column="2" Background="#000000" BorderBrush="#FFFFFF" BorderThickness="1" CornerRadius="5" Padding="8,4" VerticalAlignment="Center" Margin="4,0,0,0">
                             <TextBlock Text="{Binding MainModulationDisplay}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
@@ -492,15 +652,20 @@
                 </Grid>
             </Border>
 
-            <Border Classes="vfo-frame" Classes.transmitting="{Binding IsSubVfoTransmitting}" Background="#151D20" BorderBrush="#79C6CF" BorderThickness="4,1,1,1" CornerRadius="5" Padding="20">
+            <Border Classes="vfo-frame" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource SubVfoBorder}" BorderThickness="1.5" CornerRadius="9" Padding="22.5,19.5,19.5,19.5">
                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
                     <Grid Grid.Column="0" ColumnDefinitions="*,Auto,Auto">
-                        <Border Background="#25343A" CornerRadius="3" Padding="8,5" VerticalAlignment="Center" HorizontalAlignment="Left">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="SUB VFO" FontSize="22" FontWeight="Bold" Foreground="#79C6CF" />
-                                <TextBlock Text="{Binding SubVfoStateText}" Foreground="{Binding SubVfoStateBrush}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Left">
+                            <Grid Width="24" Height="24">
+                                <Path Data="{StaticResource VfoSignalWaves}" Stroke="#00DDF5" StrokeThickness="1.8" StrokeLineCap="Round" />
+                                <Ellipse Width="4.5" Height="4.5" Fill="#00DDF5" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBlock Text="SUB VFO" FontSize="22" FontWeight="Bold" Foreground="#E9EFF6" VerticalAlignment="Center" />
+                            <Grid IsVisible="{Binding SubVfoStateText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center">
+                                <Border Background="{Binding SubVfoStateBrush}" BorderBrush="{Binding SubVfoStateBrush}" BorderThickness="1" CornerRadius="4" Opacity="0.3" />
+                                <TextBlock Text="{Binding SubVfoStateText}" Foreground="{Binding SubVfoStateBrush}" FontSize="12" FontWeight="Bold" Padding="7,3" />
+                            </Grid>
+                        </StackPanel>
                         <TextBlock Grid.Column="1" Text="{Binding SubFrequencyDisplay}" FontFamily="Consolas" FontSize="{Binding SubFrequencyFontSize}" FontWeight="Bold" Foreground="{Binding SubFrequencyBrush}" VerticalAlignment="Center" Margin="8,4,8,0" />
                         <Border Grid.Column="2" Background="#000000" BorderBrush="#FFFFFF" BorderThickness="1" CornerRadius="5" Padding="8,4" VerticalAlignment="Center" Margin="4,0,0,0">
                             <TextBlock Text="{Binding SubModulationDisplay}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
@@ -589,13 +754,53 @@
                     </Grid>
                 </Grid>
             </Border>
+            <Border Classes="vfo-glow" Classes.transmitting="{Binding IsSubVfoTransmitting}"
+                    Background="Transparent" CornerRadius="9"
+                    IsHitTestVisible="False">
+                <Grid>
+                    <Border Background="Transparent" CornerRadius="9" BoxShadow="inset 0 -5 14 1 #5000E6FF" OpacityMask="{StaticResource VfoBottomGlowMask}" />
+                    <Border Background="{StaticResource SubVfoCornerGlow}" BorderBrush="{StaticResource SubVfoCorner}" BorderThickness="1.5,1.5,0,0" CornerRadius="9" />
+                    <Border Classes="vfo-top-right" />
+                </Grid>
+            </Border>
+            <Border Grid.Column="1" Classes="vfo-glow" Classes.transmitting="{Binding IsMainVfoTransmitting}"
+                    Background="Transparent" CornerRadius="9"
+                    IsHitTestVisible="False">
+                <Grid>
+                    <Border Background="Transparent" CornerRadius="9" BoxShadow="inset 0 -5 14 1 #50B7FA24" OpacityMask="{StaticResource VfoBottomGlowMask}" />
+                    <Border Background="{StaticResource MainVfoCornerGlow}" BorderBrush="{StaticResource MainVfoCorner}" BorderThickness="1.5,1.5,0,0" CornerRadius="9" />
+                    <Border Classes="vfo-top-right" />
+                </Grid>
+            </Border>
+            <Border Classes="vfo-transmit-overlay" Classes.transmitting="{Binding IsSubVfoTransmitting}"
+                    Background="Transparent" BorderBrush="{StaticResource TransmitVfoBorder}" BorderThickness="1.5" CornerRadius="9"
+                    IsHitTestVisible="False">
+                <Grid>
+                    <Border Background="Transparent" CornerRadius="8" BoxShadow="inset 0 -5 14 1 #58FF5049" OpacityMask="{StaticResource VfoBottomGlowMask}" />
+                    <Border Background="{StaticResource TransmitVfoCornerGlow}" BorderBrush="{StaticResource TransmitVfoCorner}" BorderThickness="1.5,1.5,0,0" CornerRadius="8" />
+                    <Border Classes="vfo-top-right" CornerRadius="8" />
+                </Grid>
+            </Border>
+            <Border Grid.Column="1" Classes="vfo-transmit-overlay" Classes.transmitting="{Binding IsMainVfoTransmitting}"
+                    Background="Transparent" BorderBrush="{StaticResource TransmitVfoBorder}" BorderThickness="1.5" CornerRadius="9"
+                    IsHitTestVisible="False">
+                <Grid>
+                    <Border Background="Transparent" CornerRadius="8" BoxShadow="inset 0 -5 14 1 #58FF5049" OpacityMask="{StaticResource VfoBottomGlowMask}" />
+                    <Border Background="{StaticResource TransmitVfoCornerGlow}" BorderBrush="{StaticResource TransmitVfoCorner}" BorderThickness="1.5,1.5,0,0" CornerRadius="8" />
+                    <Border Classes="vfo-top-right" CornerRadius="8" />
+                </Grid>
+            </Border>
         </Grid>
 
     </Grid>
     </ScrollViewer>
-    <Border Grid.Row="1" Background="#151D20" BorderBrush="#303B3C" BorderThickness="0,1,0,0" Padding="22.5,8">
+    <Border Grid.Row="1" Background="#0CFFFFFF" BorderBrush="#34434F" BorderThickness="0,1,0,0" Padding="22.5,8">
         <Grid ColumnDefinitions="*,Auto">
             <TextBlock Text="{Binding BuildInfo}" FontSize="10" Foreground="#98A8A2" VerticalAlignment="Center" />
+            <Canvas Grid.Column="1" Width="0" Height="0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False">
+                <Ellipse Canvas.Left="-25" Canvas.Top="-8" Width="15" Height="15" Stroke="#CBD6E2" StrokeThickness="1.5" />
+                <Path Canvas.Left="-25" Canvas.Top="-8" Data="M7.5,3.5 L7.5,8 L10.5,10" Stroke="#CBD6E2" StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round" />
+            </Canvas>
             <TextBlock x:Name="ClockText" Grid.Column="1" FontFamily="Consolas" FontSize="21"
                        Margin="0,-8,0,-8" VerticalAlignment="Center">
                 <TextBlock.RenderTransform>
@@ -604,6 +809,7 @@
             </TextBlock>
         </Grid>
     </Border>
+    </Grid>
     </Grid>
 
 </Window>
