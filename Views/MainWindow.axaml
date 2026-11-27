@@ -159,11 +159,6 @@
             <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="#00A9F5" />
         </Style>
-        <Style Selector="Border.main-vfo ToggleButton.meter:checked">
-            <Setter Property="Background" Value="#9BE332" />
-            <Setter Property="Foreground" Value="#10200C" />
-            <Setter Property="BorderBrush" Value="#B4F556" />
-        </Style>
         <Style Selector="ToggleButton.meter:pointerover">
             <Setter Property="BorderBrush" Value="#6B8393" />
         </Style>
@@ -255,6 +250,11 @@
             <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="#00A9F5" />
         </Style>
+        <Style Selector="ToggleButton.auto-scroll:checked:not(:pointerover):not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.meter:checked:not(:pointerover):not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource ActiveButtonBackground}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#00A9F5" />
+        </Style>
         <Style Selector="Button.settings">
             <Setter Property="Background" Value="#202D36" />
             <Setter Property="Foreground" Value="#D5DEDA" />
@@ -271,11 +271,6 @@
             <Setter Property="Background" Value="#168FE3" />
             <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="#55C7FF" />
-        </Style>
-        <Style Selector="Border.main-vfo ToggleButton.meter:checked:pointerover:not(:pressed):not(:disabled) /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#B4F556" />
-            <Setter Property="Foreground" Value="#10200C" />
-            <Setter Property="BorderBrush" Value="#CBFF82" />
         </Style>
         <Style Selector="Border.panel">
             <Setter Property="Background" Value="{StaticResource PanelBackground}" />
@@ -411,7 +406,7 @@
                     </Button.Flyout>
                 </Button>
             </StackPanel>
-            <Border Grid.Column="2" Width="1" Height="29" Background="#9AAABD" Margin="9,0" VerticalAlignment="Center" />
+            <Border Grid.Column="2" Width="1" Height="29" Background="#9AAABD" Margin="11,0,9,0" VerticalAlignment="Center" />
             <Image Grid.Column="3" Source="/Assets/SQ8MSX_round_logo_QRZ.png" Width="96" Height="96" Stretch="Uniform" VerticalAlignment="Center" />
         </Grid>
 
@@ -448,7 +443,7 @@
                         <ToggleButton Grid.Column="2" Classes="auto-scroll" IsChecked="{Binding IsCatLogAutoScroll}" Content="{Binding CatLogAutoScrollButtonText}" VerticalAlignment="Center" />
                     </Grid>
                     <TextBlock Grid.Row="1" Text="{Binding CatLogFileError}" IsVisible="{Binding HasCatLogFileError}" FontSize="12" Foreground="#E74C3C" TextWrapping="Wrap" />
-                    <Border Grid.Row="2" BorderBrush="#465A67" BorderThickness="1" CornerRadius="6">
+                    <Border Grid.Row="2" Margin="0,-1,0,0" BorderBrush="#465A67" BorderThickness="1" CornerRadius="6">
                         <ScrollViewer x:Name="CatLogScrollViewer" Background="Transparent" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <SelectableTextBlock x:Name="CatLogText" Text="{Binding CatLog}" Margin="12,0" TextWrapping="NoWrap" Foreground="#FFFFFF" FontFamily="Consolas" FontSize="11" LineHeight="14" />
                         </ScrollViewer>
@@ -557,7 +552,9 @@
                                 <Path Data="{StaticResource VfoSignalWaves}" Stroke="#A8ED35" StrokeThickness="1.8" StrokeLineCap="Round" />
                                 <Ellipse Width="4.5" Height="4.5" Fill="#A8ED35" HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Grid>
-                            <TextBlock Text="MAIN VFO" FontSize="22" FontWeight="Bold" Foreground="#E9EFF6" VerticalAlignment="Center" />
+                            <TextBlock Text="MAIN VFO" FontSize="22" FontWeight="Bold" Foreground="#E9EFF6" VerticalAlignment="Center">
+                                <TextBlock.RenderTransform><TranslateTransform Y="-1" /></TextBlock.RenderTransform>
+                            </TextBlock>
                             <Grid IsVisible="{Binding MainVfoStateText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center">
                                 <Border Background="{Binding MainVfoStateBrush}" BorderBrush="{Binding MainVfoStateBrush}" BorderThickness="1" CornerRadius="4" Opacity="0.3" />
                                 <TextBlock Text="{Binding MainVfoStateText}" Foreground="{Binding MainVfoStateBrush}" FontSize="12" FontWeight="Bold" Padding="7,3" />
@@ -660,7 +657,9 @@
                                 <Path Data="{StaticResource VfoSignalWaves}" Stroke="#00DDF5" StrokeThickness="1.8" StrokeLineCap="Round" />
                                 <Ellipse Width="4.5" Height="4.5" Fill="#00DDF5" HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Grid>
-                            <TextBlock Text="SUB VFO" FontSize="22" FontWeight="Bold" Foreground="#E9EFF6" VerticalAlignment="Center" />
+                            <TextBlock Text="SUB VFO" FontSize="22" FontWeight="Bold" Foreground="#E9EFF6" VerticalAlignment="Center">
+                                <TextBlock.RenderTransform><TranslateTransform Y="-1" /></TextBlock.RenderTransform>
+                            </TextBlock>
                             <Grid IsVisible="{Binding SubVfoStateText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" VerticalAlignment="Center">
                                 <Border Background="{Binding SubVfoStateBrush}" BorderBrush="{Binding SubVfoStateBrush}" BorderThickness="1" CornerRadius="4" Opacity="0.3" />
                                 <TextBlock Text="{Binding SubVfoStateText}" Foreground="{Binding SubVfoStateBrush}" FontSize="12" FontWeight="Bold" Padding="7,3" />
