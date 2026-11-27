@@ -85,8 +85,6 @@ public partial class MainViewModel : ViewModelBase
     private CancellationTokenSource? _transmitMeterPollingCancellation;
     private CancellationTokenSource? _transmitMeterRequestCancellation;
     private Task? _transmitMeterPollingTask;
-    private CancellationTokenSource? _funcKnobPollingCancellation;
-    private Task? _funcKnobPollingTask;
     private readonly SemaphoreSlim _dLevelOperation = new(1, 1);
     private readonly SemaphoreSlim _catOperation = new(1, 1);
     private readonly SemaphoreSlim _meterSelectionOperation = new(1, 1);
@@ -614,7 +612,6 @@ public partial class MainViewModel : ViewModelBase
             {
                 _catOperationsCancellation?.Cancel();
                 await StopTransmitMeterPollingAsync();
-                await StopFuncKnobPollingAsync();
                 await _catOperation.WaitAsync();
                 _catOperation.Release();
             }
@@ -908,7 +905,6 @@ public partial class MainViewModel : ViewModelBase
                     }
                     SetStatusMessage(string.Join(" ", connectionErrors), isError: connectionErrors.Count > 0);
                     StartTransmitMeterPolling();
-                    StartFuncKnobPolling();
                     _ = RequestDLevelForCurrentFrequencyAsync();
                     _ = RequestNoiseControlLevelsForCurrentFrequencyAsync();
                     try
@@ -1255,63 +1251,6 @@ public partial class MainViewModel : ViewModelBase
 
         cancellation.Dispose();
         _transmitMeterPollingTask = null;
-    }
-
-    private void StartFuncKnobPolling()
-    {
-        _funcKnobPollingCancellation = new CancellationTokenSource();
-        _funcKnobPollingTask = PollFuncKnobAsync(_funcKnobPollingCancellation.Token);
-    }
-
-    private async Task PollFuncKnobAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (true)
-            {
-                await Task.Delay(5000, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-                var functionCode = await RunCatAsync(_cat.ReadFuncKnobFunction, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (IsConnected)
-                {
-                    ApplyFuncKnobFromRadio(functionCode);
-                }
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested
-            || _catOperationsCancellation?.IsCancellationRequested == true)
-        {
-        }
-        catch (Exception exception)
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (IsConnected)
-                {
-                    SetStatusError($"Błąd odczytu funkcji pokrętła FUNC CAT: {exception.Message}");
-                }
-            });
-        }
-    }
-
-    private async Task StopFuncKnobPollingAsync()
-    {
-        var cancellation = _funcKnobPollingCancellation;
-        if (cancellation is null)
-        {
-            return;
-        }
-
-        _funcKnobPollingCancellation = null;
-        cancellation.Cancel();
-        if (_funcKnobPollingTask is not null)
-        {
-            await _funcKnobPollingTask;
-        }
-
-        cancellation.Dispose();
-        _funcKnobPollingTask = null;
     }
 
     private static string? GetFuncKnobOptionName(int functionCode) => functionCode switch
