@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
 using System.Threading;
@@ -96,6 +97,34 @@ foreach (var response in new[] { "ID1234", "ID084", "ID08400" })
             Assert(received.Contains("FA000014074") && received.Contains("SS04+01.0")
                 && received.Contains("NL0005") && received.Contains("RL005"),
                 "A query or unsolicited response was not dispatched.");
+        }
+    }
+}
+
+foreach (var isPeak in new[] { false, true })
+{
+    var (connection, port, received) = Create();
+    using (connection)
+    {
+        var clock = new Stopwatch();
+        long queryDelay = -1;
+        var setCommand = $"EX030513{(isPeak ? '1' : '0')};";
+        connection.CatFrameLogged += frame =>
+        {
+            if (frame == $"[TX] {setCommand}") clock.Start();
+            if (frame == "[TX] EX030513;") queryDelay = clock.ElapsedMilliseconds;
+        };
+        var change = Task.Run(() => connection.SetAndRequestMeterDetector(isPeak));
+        await WaitFor(() => port.Writes.Contains(setCommand));
+        var otherCommand = Task.Run(() => connection.SetAudioGain(0, 42));
+        await WaitFor(() => port.Writes.Contains("EX030513;"));
+        Assert(queryDelay >= 200, "The detector was queried before the radio had time to apply the setting.");
+        Assert(!port.Writes.Contains("AG0042;"), "Another command interrupted the detector change.");
+        _ = port.Inject(setCommand);
+        await Task.WhenAll(change, otherCommand);
+        lock (received)
+        {
+            Assert(received.Contains(setCommand.TrimEnd(';')), "The detector readback was not dispatched.");
         }
     }
 }

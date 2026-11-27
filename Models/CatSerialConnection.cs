@@ -396,7 +396,7 @@ public sealed class CatSerialConnection : IDisposable
         }
     }
 
-    public void SetPeakMeterDetector(bool isPeak)
+    public void SetAndRequestMeterDetector(bool isPeak)
     {
         lock (_sync)
         {
@@ -404,6 +404,9 @@ public sealed class CatSerialConnection : IDisposable
             var command = $"EX030513{(isPeak ? '1' : '0')};";
             LogFrame("TX", command);
             serialPort.Write(command);
+            // Give the radio time to apply the setting before querying it.
+            Thread.Sleep(250);
+            DispatchAutoInformation(Query("EX030513;"));
         }
     }
 

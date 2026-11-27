@@ -2985,11 +2985,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             IsPeakMeterDetector = null;
-            await RunCatAsync(() =>
-            {
-                _cat.SetPeakMeterDetector(isPeak);
-                _cat.RequestMeterDetector();
-            });
+            await RunCatAsync(() => _cat.SetAndRequestMeterDetector(isPeak));
             await completion.Task.WaitAsync(TimeSpan.FromSeconds(2));
         }
         catch (OperationCanceledException)
