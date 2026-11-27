@@ -471,7 +471,18 @@
                     </StackPanel>
                     <Button.Flyout>
                         <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="settings-popup">
-                            <CheckBox Content="{DynamicResource AlwaysOnTop}" IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
+                            <StackPanel Spacing="10" MaxWidth="320">
+                                <CheckBox Content="{DynamicResource AlwaysOnTop}" IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
+                                <Border Height="1" Background="#40515D" />
+                                <TextBlock Text="{DynamicResource CatLogFolder}" FontWeight="SemiBold" />
+                                <TextBlock Text="{DynamicResource CatLogFolderUnset}" IsVisible="{Binding IsCatLogFolderUnset}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding CatLogFolder}" IsVisible="{Binding HasCatLogFolder}" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Classes="detector" Content="{DynamicResource ChooseCatLogFolder}" Click="OnChooseCatLogFolder" />
+                                    <Button Classes="detector" Content="{DynamicResource DisableCatLogFile}" IsEnabled="{Binding HasCatLogFolder}" Click="OnDisableCatLogFile" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding CatLogFileError}" IsVisible="{Binding HasCatLogFileError}" Foreground="#E74C3C" TextWrapping="Wrap" />
+                            </StackPanel>
                         </Flyout>
                     </Button.Flyout>
                 </Button>

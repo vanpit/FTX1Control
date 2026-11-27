@@ -17,8 +17,16 @@ static void Assert(bool condition, string message)
     if (!condition) throw new InvalidOperationException(message);
 }
 
-var viewModel = new MainViewModel();
-var logPath = (string?)typeof(MainViewModel).GetField("_catLogFilePath", PrivateInstance)!.GetValue(viewModel);
+static MainViewModel CreateModel(string settingsPath)
+{
+    var storeType = typeof(MainViewModel).Assembly.GetType("FTX1Control.Services.CatLogSettingsStore")!;
+    var store = Activator.CreateInstance(storeType, settingsPath)!;
+    return (MainViewModel)Activator.CreateInstance(
+        typeof(MainViewModel), PrivateInstance, null, new[] { store }, null)!;
+}
+
+var isolatedSettingsPath = Path.Combine(Path.GetTempPath(), "FTX1Control-tests", Guid.NewGuid().ToString("N"), "settings.txt");
+var viewModel = CreateModel(isolatedSettingsPath);
 var wasEnglish = LanguageService.IsEnglish;
 try
 {
@@ -150,13 +158,11 @@ finally
 {
     viewModel.Dispose();
     LanguageService.SetLanguage(wasEnglish ? 1 : 0, savePreference: false);
-    if (logPath is not null && File.Exists(logPath)) File.Delete(logPath);
 }
 
 Console.WriteLine("Connection timeout UI checks passed.");
 
-var frequencyModel = new MainViewModel();
-var frequencyLogPath = (string?)typeof(MainViewModel).GetField("_catLogFilePath", PrivateInstance)!.GetValue(frequencyModel);
+var frequencyModel = CreateModel(isolatedSettingsPath);
 try
 {
     LanguageService.SetLanguage(0, savePreference: false);
@@ -223,7 +229,123 @@ finally
 {
     frequencyModel.Dispose();
     LanguageService.SetLanguage(wasEnglish ? 1 : 0, savePreference: false);
-    if (frequencyLogPath is not null && File.Exists(frequencyLogPath)) File.Delete(frequencyLogPath);
 }
 
 Console.WriteLine("Frequency refresh debounce checks passed.");
+
+var testRoot = Path.Combine(Path.GetTempPath(), "FTX1Control-log-check-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(testRoot);
+var logModels = new List<MainViewModel>();
+MainViewModel CreateLogModel(string path)
+{
+    var model = CreateModel(path);
+    logModels.Add(model);
+    return model;
+}
+try
+{
+    var settingsPath = Path.Combine(testRoot, "settings", "cat-log-folder.txt");
+    var firstFolder = Path.Combine(testRoot, "first");
+    var secondFolder = Path.Combine(testRoot, "second");
+    Directory.CreateDirectory(firstFolder);
+    Directory.CreateDirectory(secondFolder);
+    var logField = typeof(MainViewModel).GetField("_catLogFilePath", PrivateInstance)!;
+    var logFrame = typeof(MainViewModel).GetMethod("OnCatFrameLogged", PrivateInstance)!;
+
+    {
+        var model = CreateLogModel(settingsPath);
+        Assert(!model.HasCatLogFolder && model.IsCatLogFolderUnset && logField.GetValue(model) is null,
+            "File logging is not disabled by default.");
+        logFrame.Invoke(model, new object[] { "[TX] FA;" });
+        Assert(!File.Exists(settingsPath) && Directory.GetFiles(firstFolder).Length == 0,
+            "A CAT frame created a file while file logging was disabled.");
+
+        model.SetCatLogFolder(firstFolder);
+        var firstLog = (string?)logField.GetValue(model);
+        Assert(model.CatLogFolder == firstFolder && model.HasCatLogFolder && !model.HasCatLogFileError
+            && firstLog is not null && File.Exists(firstLog), "Selecting a folder did not start file logging.");
+        logFrame.Invoke(model, new object[] { "[TX] FA;" });
+        Assert(File.ReadAllText(firstLog!).Contains("[TX] FA;", StringComparison.Ordinal),
+            "The CAT frame was not written to the selected folder.");
+
+        model.SetCatLogFolder("relative-folder");
+        Assert(model.HasCatLogFileError && model.CatLogFolder == firstFolder
+            && Equals(logField.GetValue(model), firstLog) && File.ReadAllText(settingsPath) == firstFolder,
+            "An invalid folder changed the active or saved logging destination.");
+        logFrame.Invoke(model, new object[] { "[TX] MD;" });
+        Assert(File.ReadAllText(firstLog!).Contains("[TX] MD;", StringComparison.Ordinal),
+            "A rejected folder stopped the previously active log.");
+
+        var settingsDirectory = Path.GetDirectoryName(settingsPath)!;
+        var savedSettingsDirectory = Path.Combine(testRoot, "saved-settings");
+        Directory.Move(settingsDirectory, savedSettingsDirectory);
+        File.WriteAllText(settingsDirectory, "not a directory");
+        try
+        {
+            model.SetCatLogFolder(secondFolder);
+            Assert(model.HasCatLogFileError && model.CatLogFolder == firstFolder
+                && Equals(logField.GetValue(model), firstLog),
+                "A settings write failure changed the active logging destination.");
+        }
+        finally
+        {
+            File.Delete(settingsDirectory);
+            Directory.Move(savedSettingsDirectory, settingsDirectory);
+        }
+        Assert(File.ReadAllText(settingsPath) == firstFolder,
+            "A settings write failure changed the saved logging destination.");
+
+        model.SetCatLogFolder(secondFolder);
+        var secondLog = (string?)logField.GetValue(model);
+        logFrame.Invoke(model, new object[] { "[TX] FB;" });
+        Assert(secondLog is not null && File.ReadAllText(secondLog).Contains("[TX] FB;", StringComparison.Ordinal)
+            && !File.ReadAllText(firstLog!).Contains("[TX] FB;", StringComparison.Ordinal) && !model.HasCatLogFileError,
+            "Changing folders did not redirect subsequent CAT frames.");
+    }
+
+    {
+        var model = CreateLogModel(settingsPath);
+        var restartedLog = (string?)logField.GetValue(model);
+        Assert(model.CatLogFolder == secondFolder && restartedLog is not null && File.Exists(restartedLog),
+            "The selected folder was not restored on restart.");
+        model.SetCatLogFolder(null);
+        logFrame.Invoke(model, new object[] { "[TX] PC;" });
+        Assert(!model.HasCatLogFolder && logField.GetValue(model) is null
+            && !File.ReadAllText(restartedLog!).Contains("[TX] PC;", StringComparison.Ordinal),
+            "Disabling file logging did not stop subsequent writes.");
+    }
+
+    {
+        var model = CreateLogModel(settingsPath);
+        Assert(!model.HasCatLogFolder && logField.GetValue(model) is null,
+            "The disabled setting was not restored on restart.");
+        var missingFolder = Path.Combine(testRoot, "missing");
+        model.SetCatLogFolder(missingFolder);
+        Assert(model.CatLogFolder == missingFolder && model.HasCatLogFileError && logField.GetValue(model) is null,
+            "A missing selected folder did not report a log creation error.");
+    }
+
+    {
+        var model = CreateLogModel(settingsPath);
+        Assert(model.HasCatLogFileError && logField.GetValue(model) is null,
+            "An unavailable saved folder did not report an error on restart.");
+        model.SetCatLogFolder(null);
+        Assert(!model.HasCatLogFileError, "Disabling file logging did not clear the error.");
+    }
+
+    var invalidParent = Path.Combine(testRoot, "not-a-directory");
+    File.WriteAllText(invalidParent, "test");
+    {
+        var model = CreateLogModel(Path.Combine(invalidParent, "settings.txt"));
+        model.SetCatLogFolder(firstFolder);
+        Assert(!model.HasCatLogFolder && model.HasCatLogFileError && logField.GetValue(model) is null,
+            "Failure to save the folder setting was not reported.");
+    }
+}
+finally
+{
+    foreach (var model in logModels) model.Dispose();
+    Directory.Delete(testRoot, recursive: true);
+}
+
+Console.WriteLine("CAT log folder checks passed.");

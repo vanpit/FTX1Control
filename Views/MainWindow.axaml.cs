@@ -8,8 +8,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using FTX1Control.Services;
 using FTX1Control.ViewModels;
 
 namespace FTX1Control.Views;
@@ -222,6 +224,52 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel viewModel)
         {
             viewModel.RefreshComPorts();
+        }
+    }
+
+    private async void OnChooseCatLogFolder(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!StorageProvider.CanPickFolder)
+            {
+                throw new NotSupportedException("Wybór folderu nie jest obsługiwany.");
+            }
+
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = LanguageService.TranslateStatus("Wybierz folder logów CAT"),
+                AllowMultiple = false
+            });
+            if (folders.Count == 0)
+            {
+                return;
+            }
+
+            var path = folders[0].TryGetLocalPath();
+            if (path is null)
+            {
+                throw new NotSupportedException("Wybrany folder nie ma lokalnej ścieżki.");
+            }
+            viewModel.SetCatLogFolder(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.SecurityException or InvalidOperationException or NotSupportedException)
+        {
+            Trace.TraceError($"Unable to choose the CAT log folder: {exception}");
+            viewModel.CatLogFileError = $"Nie można wybrać folderu logów CAT: {exception.Message}";
+        }
+    }
+
+    private void OnDisableCatLogFile(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.SetCatLogFolder(null);
         }
     }
 

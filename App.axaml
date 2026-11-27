@@ -10,6 +10,10 @@
             <x:String x:Key="WindowTitle">FTX-1 | Sterowanie CAT</x:String>
             <x:String x:Key="HeaderTitle">Panel sterowania</x:String>
             <x:String x:Key="AlwaysOnTop">Zawsze na wierzchu</x:String>
+            <x:String x:Key="CatLogFolder">Folder logów CAT</x:String>
+            <x:String x:Key="CatLogFolderUnset">Brak folderu — zapis wyłączony</x:String>
+            <x:String x:Key="ChooseCatLogFolder">Wybierz folder</x:String>
+            <x:String x:Key="DisableCatLogFile">Wyłącz zapis</x:String>
             <x:String x:Key="SettingsButton">Ustawienia</x:String>
             <x:String x:Key="ConnectionTitle">POŁĄCZENIE</x:String>
             <x:String x:Key="SerialPortLabel">PORT SZEREGOWY</x:String>

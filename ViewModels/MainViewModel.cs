@@ -79,10 +79,13 @@ public partial class MainViewModel : ViewModelBase
 
     private readonly CatSerialConnection _cat = new();
     private readonly ConnectionSettingsStore _connectionSettingsStore = ConnectionSettingsStore.CreateDefault();
+    private readonly CatLogSettingsStore _catLogSettingsStore;
     private ConnectionSettings? _savedConnectionSettings;
     private readonly Queue<string> _catLogLines = new();
     private readonly object _catLogFileSync = new();
     private string? _catLogFilePath;
+    private string? _catLogFolder;
+    private int _catLogFileGeneration;
     private CancellationTokenSource? _transmitMeterPollingCancellation;
     private CancellationTokenSource? _transmitMeterRequestCancellation;
     private Task? _transmitMeterPollingTask;
@@ -361,6 +364,9 @@ public partial class MainViewModel : ViewModelBase
     public string CatLogAutoScrollButtonText => LanguageService.TranslateStatus(
         IsCatLogAutoScroll ? "AUTO-PRZEWIJANIE: WŁ." : "AUTO-PRZEWIJANIE: WYŁ.");
     public bool HasCatLogFileError => !string.IsNullOrEmpty(_catLogFileError);
+    public string? CatLogFolder => _catLogFolder;
+    public bool HasCatLogFolder => _catLogFolder is not null;
+    public bool IsCatLogFolderUnset => _catLogFolder is null;
     public bool IsAverageMeterDetector => IsPeakMeterDetector == false;
     public bool IsPeakMeterDetectorSelected => IsPeakMeterDetector == true;
     public bool CanSelectMeterDetector => IsConnected && !IsMeterDetectorUpdating;
@@ -429,11 +435,28 @@ public partial class MainViewModel : ViewModelBase
             ? new SolidColorBrush(Color.FromRgb(213, 154, 66))
             : new SolidColorBrush(Color.FromRgb(233, 239, 237));
 
-    public MainViewModel()
+    public MainViewModel() : this(CatLogSettingsStore.CreateDefault())
     {
+    }
+
+    internal MainViewModel(CatLogSettingsStore catLogSettingsStore)
+    {
+        _catLogSettingsStore = catLogSettingsStore;
         _selectedLanguageIndex = LanguageService.LoadPreferredLanguageIndex();
         LanguageService.SetLanguage(_selectedLanguageIndex, savePreference: false);
-        InitializeCatLogFile();
+        try
+        {
+            _catLogFolder = _catLogSettingsStore.Load();
+            if (_catLogFolder is not null)
+            {
+                InitializeCatLogFile(_catLogFolder);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or SecurityException or ArgumentException or NotSupportedException)
+        {
+            Trace.TraceError($"Unable to read the CAT log folder: {exception}");
+            CatLogFileError = $"Nie można odczytać ustawienia folderu logów CAT: {exception.Message}";
+        }
         MainMeters = CreateMeterOptions(0);
         SubMeters = CreateMeterOptions(1);
         SelectedFuncKnobOption = null;
@@ -472,26 +495,51 @@ public partial class MainViewModel : ViewModelBase
     partial void OnIsCatLogAutoScrollChanged(bool value) =>
         OnPropertyChanged(nameof(CatLogAutoScrollButtonText));
 
-    private void InitializeCatLogFile()
+    public void SetCatLogFolder(string? folder)
     {
         try
         {
-            var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            if (string.IsNullOrEmpty(documentsPath))
+            if (folder is not null && !Path.IsPathFullyQualified(folder))
             {
-                throw new IOException("Nie znaleziono folderu Dokumenty.");
+                throw new ArgumentException("Folder musi mieć pełną ścieżkę.");
             }
+            _catLogSettingsStore.Save(folder);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or SecurityException or ArgumentException or NotSupportedException)
+        {
+            Trace.TraceError($"Unable to save the CAT log folder: {exception}");
+            CatLogFileError = $"Nie można zapisać ustawienia folderu logów CAT: {exception.Message}";
+            return;
+        }
 
-            var directory = Path.Combine(documentsPath, "FTX1ControlLogs");
-            Directory.CreateDirectory(directory);
+        lock (_catLogFileSync)
+        {
+            _catLogFileGeneration++;
+            _catLogFilePath = null;
+            _catLogFolder = folder;
+            CatLogFileError = string.Empty;
+            if (folder is not null)
+            {
+                InitializeCatLogFile(folder);
+            }
+        }
+
+        OnPropertyChanged(nameof(CatLogFolder));
+        OnPropertyChanged(nameof(HasCatLogFolder));
+        OnPropertyChanged(nameof(IsCatLogFolderUnset));
+    }
+
+    private void InitializeCatLogFile(string directory)
+    {
+        try
+        {
             var path = Path.Combine(directory, $"CAT_{DateTime.Now:yyyy-MM-dd_HH-mm-ss-fffffff}_{Guid.NewGuid():N}.txt");
-            using (File.Create(path))
+            using (new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read))
             {
             }
-
             _catLogFilePath = path;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or SecurityException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or SecurityException or ArgumentException or NotSupportedException)
         {
             Trace.TraceError($"Unable to create CAT log file: {exception}");
             CatLogFileError = $"Nie można utworzyć pliku logu CAT: {exception.Message}";
@@ -1405,8 +1453,17 @@ public partial class MainViewModel : ViewModelBase
                 {
                     Trace.TraceError($"Unable to write CAT log file: {exception}");
                     _catLogFilePath = null;
+                    var generation = _catLogFileGeneration;
                     Dispatcher.UIThread.Post(() =>
-                        CatLogFileError = $"Nie można zapisać logu CAT; dalsze wpisy nie będą zapisywane: {exception.Message}");
+                    {
+                        lock (_catLogFileSync)
+                        {
+                            if (_catLogFileGeneration == generation)
+                            {
+                                CatLogFileError = $"Nie można zapisać logu CAT; dalsze wpisy nie będą zapisywane: {exception.Message}";
+                            }
+                        }
+                    });
                 }
             }
 
