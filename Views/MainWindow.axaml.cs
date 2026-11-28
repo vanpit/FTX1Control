@@ -3,10 +3,12 @@ using System.Globalization;
 using System.IO;
 using System.Diagnostics;
 using System.ComponentModel;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -30,6 +32,7 @@ public partial class MainWindow : Window
     private Size _lastCatLogExtent;
     private Size _lastCatLogViewport;
     private bool _catLogContentUpdatePending;
+    private PinnedFrequencyViewModel? _pendingPinnedCallSignFocus;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private const double VolumeWheelStep = 5;
 
@@ -75,6 +78,8 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _clockTimer.Stop();
+            LayoutUpdated -= OnPinnedCallSignFocusLayoutUpdated;
+            _pendingPinnedCallSignFocus = null;
             if (DataContext is MainViewModel viewModel)
             {
                 viewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
@@ -283,6 +288,66 @@ public partial class MainWindow : Window
             e.Handled = true;
             frequency.RemoveCommand.Execute(null);
         }
+    }
+
+    private void OnPinMainFrequencyClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel || !viewModel.PinMainFrequencyCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        var previous = viewModel.MainPinnedFrequencies.FirstOrDefault();
+        viewModel.PinMainFrequencyCommand.Execute(null);
+        FocusNewPinnedCallSign(previous, viewModel.MainPinnedFrequencies.FirstOrDefault());
+    }
+
+    private void OnPinSubFrequencyClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel || !viewModel.PinSubFrequencyCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        var previous = viewModel.SubPinnedFrequencies.FirstOrDefault();
+        viewModel.PinSubFrequencyCommand.Execute(null);
+        FocusNewPinnedCallSign(previous, viewModel.SubPinnedFrequencies.FirstOrDefault());
+    }
+
+    private void FocusNewPinnedCallSign(PinnedFrequencyViewModel? previous, PinnedFrequencyViewModel? current)
+    {
+        if (current is null || ReferenceEquals(previous, current))
+        {
+            return;
+        }
+
+        _pendingPinnedCallSignFocus = current;
+        LayoutUpdated -= OnPinnedCallSignFocusLayoutUpdated;
+        LayoutUpdated += OnPinnedCallSignFocusLayoutUpdated;
+        Dispatcher.UIThread.Post(TryFocusPinnedCallSign, DispatcherPriority.Render);
+    }
+
+    private void OnPinnedCallSignFocusLayoutUpdated(object? sender, EventArgs e) => TryFocusPinnedCallSign();
+
+    private void TryFocusPinnedCallSign()
+    {
+        if (_pendingPinnedCallSignFocus is not { } frequency)
+        {
+            return;
+        }
+
+        var textBox = this.GetVisualDescendants()
+            .OfType<TextBox>()
+            .FirstOrDefault(control => ReferenceEquals(control.DataContext, frequency));
+        if (textBox is null)
+        {
+            return;
+        }
+
+        LayoutUpdated -= OnPinnedCallSignFocusLayoutUpdated;
+        _pendingPinnedCallSignFocus = null;
+        textBox.Focus();
+        textBox.CaretIndex = textBox.Text?.Length ?? 0;
     }
 
     private void OnPinnedCallSignTextChanged(object? sender, TextChangedEventArgs e)

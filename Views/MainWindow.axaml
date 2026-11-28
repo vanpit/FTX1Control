@@ -766,7 +766,7 @@
                             </ItemsControl>
                             <TextBlock Text="{DynamicResource PinnedFrequencies}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" Margin="4,14,0,6" />
                             <Grid ColumnDefinitions="Auto,*">
-                                <Button Classes="pinned-frequency pin" Content="{DynamicResource PinFrequency}" Command="{Binding PinMainFrequencyCommand}" IsEnabled="{Binding CanPinMainFrequency}" VerticalAlignment="Top" />
+                                <Button Classes="pinned-frequency pin" Content="{DynamicResource PinFrequency}" Click="OnPinMainFrequencyClicked" IsEnabled="{Binding CanPinMainFrequency}" VerticalAlignment="Top" />
                                 <ItemsControl Grid.Column="1" ItemsSource="{Binding MainPinnedFrequencies}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -871,7 +871,7 @@
                             </ItemsControl>
                             <TextBlock Text="{DynamicResource PinnedFrequencies}" FontSize="10" FontWeight="Bold" Foreground="#98A8A2" Margin="4,14,0,6" />
                             <Grid ColumnDefinitions="Auto,*">
-                                <Button Classes="pinned-frequency pin" Content="{DynamicResource PinFrequency}" Command="{Binding PinSubFrequencyCommand}" IsEnabled="{Binding CanPinSubFrequency}" VerticalAlignment="Top" />
+                                <Button Classes="pinned-frequency pin" Content="{DynamicResource PinFrequency}" Click="OnPinSubFrequencyClicked" IsEnabled="{Binding CanPinSubFrequency}" VerticalAlignment="Top" />
                                 <ItemsControl Grid.Column="1" ItemsSource="{Binding SubPinnedFrequencies}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -954,25 +954,33 @@
                 </Grid>
             </Border>
             <ItemsControl Grid.Column="0" ItemsSource="{Binding SubPinnedFrequencies}"
-                          HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,18"
+                          HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,19"
                           IsHitTestVisible="False">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
                         <Border Classes="pinned-frequency-callsign-display"
                                 IsVisible="{Binding IsCallSignDisplayVisible}">
-                            <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}" />
+                            <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}">
+                                <TextBlock.RenderTransform>
+                                    <TranslateTransform Y="-1" />
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
             <ItemsControl Grid.Column="1" ItemsSource="{Binding MainPinnedFrequencies}"
-                          HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,18"
+                          HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,19"
                           IsHitTestVisible="False">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
                         <Border Classes="pinned-frequency-callsign-display"
                                 IsVisible="{Binding IsCallSignDisplayVisible}">
-                            <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}" />
+                            <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}">
+                                <TextBlock.RenderTransform>
+                                    <TranslateTransform Y="-1" />
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
