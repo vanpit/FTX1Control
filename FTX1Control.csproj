@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\ftx1-radio.ico</ApplicationIcon>
-    <AppVersionPrefix Condition="'$(AppVersionPrefix)' == ''">0.16</AppVersionPrefix>
+    <AppVersionPrefix Condition="'$(AppVersionPrefix)' == ''">0.17</AppVersionPrefix>
     <AppBuildTimestamp>$([System.DateTime]::UtcNow.ToString('yyyyMMddHHmmssfff'))</AppBuildTimestamp>
   </PropertyGroup>
 

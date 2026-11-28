@@ -43,6 +43,30 @@ try
     pinnedFrequency.IsSelected = false;
     Assert(!pinnedFrequency.IsCallSignDisplayVisible, "Deselecting a pinned frequency did not hide its callsign.");
 
+    var volumeViewModel = CreateModel(Path.Combine(
+        Path.GetTempPath(), "FTX1Control-volume-icon-tests", Guid.NewGuid().ToString("N"), "settings.txt"));
+    try
+    {
+        Assert(volumeViewModel.IsMainVolumeMutedIconVisible && !volumeViewModel.IsMainVolumeMaxIconVisible,
+            "Zero MAIN volume did not select the muted icon.");
+        volumeViewModel.MainVolumeLevel = 1;
+        Assert(volumeViewModel.IsMainVolumeMaxIconVisible && !volumeViewModel.IsMainVolumeMutedIconVisible,
+            "Non-zero MAIN volume did not select the maximum icon.");
+        volumeViewModel.MainVolumeLevel = 255;
+        Assert(volumeViewModel.IsMainVolumeMaxIconVisible && !volumeViewModel.IsMainVolumeMutedIconVisible,
+            "Maximum MAIN volume did not select the maximum icon.");
+        volumeViewModel.SubVolumeLevel = 255;
+        Assert(volumeViewModel.IsSubVolumeMaxIconVisible && !volumeViewModel.IsSubVolumeMutedIconVisible,
+            "Non-zero SUB volume did not select the maximum icon.");
+        volumeViewModel.SubVolumeLevel = 0;
+        Assert(volumeViewModel.IsSubVolumeMutedIconVisible && !volumeViewModel.IsSubVolumeMaxIconVisible,
+            "Zero SUB volume did not select the muted icon.");
+    }
+    finally
+    {
+        volumeViewModel.Dispose();
+    }
+
     var connectionIndicatorChanges = 0;
     viewModel.PropertyChanged += (_, e) =>
     {

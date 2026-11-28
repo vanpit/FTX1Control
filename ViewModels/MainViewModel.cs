@@ -495,6 +495,10 @@ public partial class MainViewModel : ViewModelBase
     public bool CanPinSubFrequency => IsConnected && _subFrequencyHz.HasValue && _subModeCode.HasValue;
     public string MainVfoStateText => TransmitVfo switch { 0 => "TRX", 1 => "RX", _ => string.Empty };
     public string SubVfoStateText => TransmitVfo switch { 0 => "RX", 1 => "TRX", _ => string.Empty };
+    public bool IsMainVolumeMaxIconVisible => MainVolumeLevel > 0;
+    public bool IsMainVolumeMutedIconVisible => MainVolumeLevel <= 0;
+    public bool IsSubVolumeMaxIconVisible => SubVolumeLevel > 0;
+    public bool IsSubVolumeMutedIconVisible => SubVolumeLevel <= 0;
     public IBrush MainVfoStateBrush => GetVfoStateBrush(TransmitVfo == 0);
     public IBrush SubVfoStateBrush => GetVfoStateBrush(TransmitVfo == 1);
     public bool IsMainVfoTransmitting => IsTransmitting && TransmitVfo == 0;
@@ -3255,6 +3259,9 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnMainVolumeLevelChanged(double value)
     {
+        OnPropertyChanged(nameof(IsMainVolumeMaxIconVisible));
+        OnPropertyChanged(nameof(IsMainVolumeMutedIconVisible));
+
         if (!_isApplyingRadioAudioGain)
         {
             IsMainVolumeMuted = value <= 0;
@@ -3268,6 +3275,9 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnSubVolumeLevelChanged(double value)
     {
+        OnPropertyChanged(nameof(IsSubVolumeMaxIconVisible));
+        OnPropertyChanged(nameof(IsSubVolumeMutedIconVisible));
+
         if (!_isApplyingRadioAudioGain)
         {
             IsSubVolumeMuted = value <= 0;

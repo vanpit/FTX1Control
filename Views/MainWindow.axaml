@@ -35,6 +35,9 @@
 
     <Window.Resources>
         <StreamGeometry x:Key="VfoSignalWaves">M 5.5,5.3 C 1.8,9 1.8,15 5.5,18.7 M 8.5,8.5 C 6.7,10.4 6.7,13.6 8.5,15.5 M 15.5,8.5 C 17.3,10.4 17.3,13.6 15.5,15.5 M 18.5,5.3 C 22.2,9 22.2,15 18.5,18.7</StreamGeometry>
+        <StreamGeometry x:Key="VolumeMaxIconGeometry">M5,12 H10 L17,6 V26 L10,20 H5 Z M21,11 Q26,16 21,21 M25,6 Q34,16 25,26</StreamGeometry>
+        <StreamGeometry x:Key="VolumeMutedSpeakerGeometry">M5,12 H9 M12,10 L17,6 V13 M17,22 V26 L10,20 H5 V12</StreamGeometry>
+        <StreamGeometry x:Key="VolumeMutedSlashGeometry">M4,4 L28,28</StreamGeometry>
         <LinearGradientBrush x:Key="PanelBackground" StartPoint="0%,0%" EndPoint="100%,100%">
             <GradientStop Color="#1C2932" Offset="0" />
             <GradientStop Color="#111A20" Offset="0.55" />
@@ -790,11 +793,13 @@
                             <Border x:Name="MainVolumeFill" Height="0" VerticalAlignment="Bottom" Background="#FFFFFF" CornerRadius="7" />
                         </Border>
                         <Button Grid.Row="1" Grid.Column="1" Classes="volume-mute" Width="24" Height="24" IsEnabled="{Binding IsConnected}" Command="{Binding ToggleMainVolumeMuteCommand}" ToolTip.Tip="{DynamicResource MuteMainVolumeTip}">
-                            <Grid Width="14" Height="14">
-                                <Path Data="M2,6 L5,6 L10,2 L10,12 L5,8 L2,8 Z" Fill="#E9EFED" />
-                                <Path Data="M11,5 Q14,7 11,9" Stroke="#E9EFED" StrokeThickness="1.5" />
-                                <Path Data="M3,3 L13,13" Stroke="#E53935" StrokeThickness="1.5" IsVisible="{Binding IsMainVolumeMuted}" />
-                            </Grid>
+                            <Viewbox Width="20" Height="20" Stretch="Uniform">
+                                <Canvas Width="32" Height="32">
+                                    <Path Data="{StaticResource VolumeMaxIconGeometry}" Stroke="#DCECF5" StrokeThickness="1.8" StrokeLineCap="Round" IsVisible="{Binding IsMainVolumeMaxIconVisible}" />
+                                    <Path Data="{StaticResource VolumeMutedSpeakerGeometry}" Stroke="#F87979" StrokeThickness="1.8" StrokeLineCap="Round" IsVisible="{Binding IsMainVolumeMutedIconVisible}" />
+                                    <Path Data="{StaticResource VolumeMutedSlashGeometry}" Stroke="#F87979" StrokeThickness="2.2" StrokeLineCap="Round" IsVisible="{Binding IsMainVolumeMutedIconVisible}" />
+                                </Canvas>
+                            </Viewbox>
                         </Button>
                         <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MainPinnedFrequencies}"
                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,3,0,0">
@@ -904,11 +909,13 @@
                             <Border x:Name="SubVolumeFill" Height="0" VerticalAlignment="Bottom" Background="#FFFFFF" CornerRadius="7" />
                         </Border>
                         <Button Grid.Row="1" Grid.Column="1" Classes="volume-mute" Width="24" Height="24" IsEnabled="{Binding IsConnected}" Command="{Binding ToggleSubVolumeMuteCommand}" ToolTip.Tip="{DynamicResource MuteSubVolumeTip}">
-                            <Grid Width="14" Height="14">
-                                <Path Data="M2,6 L5,6 L10,2 L10,12 L5,8 L2,8 Z" Fill="#E9EFED" />
-                                <Path Data="M11,5 Q14,7 11,9" Stroke="#E9EFED" StrokeThickness="1.5" />
-                                <Path Data="M3,3 L13,13" Stroke="#E53935" StrokeThickness="1.5" IsVisible="{Binding IsSubVolumeMuted}" />
-                            </Grid>
+                            <Viewbox Width="20" Height="20" Stretch="Uniform">
+                                <Canvas Width="32" Height="32">
+                                    <Path Data="{StaticResource VolumeMaxIconGeometry}" Stroke="#DCECF5" StrokeThickness="1.8" StrokeLineCap="Round" IsVisible="{Binding IsSubVolumeMaxIconVisible}" />
+                                    <Path Data="{StaticResource VolumeMutedSpeakerGeometry}" Stroke="#F87979" StrokeThickness="1.8" StrokeLineCap="Round" IsVisible="{Binding IsSubVolumeMutedIconVisible}" />
+                                    <Path Data="{StaticResource VolumeMutedSlashGeometry}" Stroke="#F87979" StrokeThickness="2.2" StrokeLineCap="Round" IsVisible="{Binding IsSubVolumeMutedIconVisible}" />
+                                </Canvas>
+                            </Viewbox>
                         </Button>
                         <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding SubPinnedFrequencies}"
                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,3,0,0">
