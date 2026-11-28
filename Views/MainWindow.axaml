@@ -243,6 +243,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Padding" Value="10,2" />
+            <Setter Property="Cursor" Value="Hand" />
         </Style>
         <Style Selector="TextBlock.pinned-frequency-callsign-display">
             <Setter Property="FontSize" Value="22" />
@@ -955,11 +956,13 @@
             </Border>
             <ItemsControl Grid.Column="0" ItemsSource="{Binding SubPinnedFrequencies}"
                           HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,19"
-                          IsHitTestVisible="False">
+                          IsHitTestVisible="True">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
                         <Border Classes="pinned-frequency-callsign-display"
-                                IsVisible="{Binding IsCallSignDisplayVisible}">
+                                IsVisible="{Binding IsCallSignDisplayVisible}"
+                                Cursor="Hand"
+                                PointerPressed="OnPinnedCallSignDisplayPointerPressed">
                             <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}">
                                 <TextBlock.RenderTransform>
                                     <TranslateTransform Y="-1" />
@@ -971,11 +974,13 @@
             </ItemsControl>
             <ItemsControl Grid.Column="1" ItemsSource="{Binding MainPinnedFrequencies}"
                           HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,19"
-                          IsHitTestVisible="False">
+                          IsHitTestVisible="True">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
                         <Border Classes="pinned-frequency-callsign-display"
-                                IsVisible="{Binding IsCallSignDisplayVisible}">
+                                IsVisible="{Binding IsCallSignDisplayVisible}"
+                                Cursor="Hand"
+                                PointerPressed="OnPinnedCallSignDisplayPointerPressed">
                             <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}">
                                 <TextBlock.RenderTransform>
                                     <TranslateTransform Y="-1" />
@@ -1003,6 +1008,22 @@
                 </TextBlock.RenderTransform>
             </TextBlock>
         </Grid>
+    </Border>
+    <Border x:Name="CallSignCopyToast"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            Margin="0,0,0,54"
+            Padding="14,8"
+            CornerRadius="8"
+            Background="#E62D3A40"
+            BorderBrush="#60727A"
+            BorderThickness="1"
+            IsVisible="False"
+            IsHitTestVisible="False">
+        <TextBlock x:Name="CallSignCopyToastText"
+                   FontSize="13"
+                   FontWeight="SemiBold"
+                   Foreground="#F0F4F2" />
     </Border>
     </Grid>
     </Grid>

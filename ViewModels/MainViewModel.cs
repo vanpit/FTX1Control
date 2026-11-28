@@ -2627,6 +2627,11 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             await RunCatAsync(() => _cat.SetFrequencyAndMode(vfo, frequencyHz, modeCode));
+            if (GetModeDisplay(modeCode) is string modeDisplay)
+            {
+                UpdateFrequency(vfo, frequencyHz);
+                UpdateMode(vfo, modeCode, modeDisplay);
+            }
         }
         catch (OperationCanceledException)
         {

@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
     private bool _catLogContentUpdatePending;
     private PinnedFrequencyViewModel? _pendingPinnedCallSignFocus;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly DispatcherTimer _copyToastTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private const double VolumeWheelStep = 5;
 
     public MainWindow()
@@ -53,6 +55,11 @@ public partial class MainWindow : Window
             _lastKnownWindowPosition = Position;
         };
         _clockTimer.Tick += (_, _) => UpdateClock();
+        _copyToastTimer.Tick += (_, _) =>
+        {
+            CallSignCopyToast.IsVisible = false;
+            _copyToastTimer.Stop();
+        };
         PositionChanged += (_, _) => _lastKnownWindowPosition = Position;
         Loaded += async (_, _) =>
         {
@@ -78,6 +85,7 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _clockTimer.Stop();
+            _copyToastTimer.Stop();
             LayoutUpdated -= OnPinnedCallSignFocusLayoutUpdated;
             _pendingPinnedCallSignFocus = null;
             if (DataContext is MainViewModel viewModel)
@@ -288,6 +296,41 @@ public partial class MainWindow : Window
             e.Handled = true;
             frequency.RemoveCommand.Execute(null);
         }
+    }
+
+    private async void OnPinnedCallSignDisplayPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Border { DataContext: PinnedFrequencyViewModel frequency }
+            || e.GetCurrentPoint((Border)sender).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonPressed
+            || string.IsNullOrWhiteSpace(frequency.CallSign))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await clipboard.SetValueAsync(DataFormat.Text, frequency.CallSign);
+            CallSignCopyToastText.Text = LanguageService.IsEnglish
+                ? $"Copied: {frequency.CallSign}"
+                : $"Skopiowano: {frequency.CallSign}";
+        }
+        catch
+        {
+            CallSignCopyToastText.Text = LanguageService.IsEnglish
+                ? "Could not copy callsign"
+                : "Nie udało się skopiować znaku";
+        }
+
+        CallSignCopyToast.IsVisible = true;
+        _copyToastTimer.Stop();
+        _copyToastTimer.Start();
     }
 
     private void OnPinMainFrequencyClicked(object? sender, RoutedEventArgs e)

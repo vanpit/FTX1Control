@@ -34,6 +34,16 @@ static (CatSerialConnection Connection, SerialPort Port, List<string> Received) 
 }
 
 {
+    var (connection, port, _) = Create();
+    using (connection)
+    {
+        await Task.Run(() => connection.SetFrequencyAndMode(0, 14_074_000, 'C'));
+        Assert(port.Writes.Contains("FA014074000;") && port.Writes.Contains("MD0C;"),
+            "Selecting a pinned frequency did not restore its frequency and emission.");
+    }
+}
+
+{
     using var connection = new CatSerialConnection();
     var frames = new List<string>();
     connection.CatFrameLogged += frames.Add;
