@@ -1607,6 +1607,12 @@ public partial class MainViewModel : ViewModelBase
             return $"{frame} — {Localize("zdarzenie rozpoczęcia nadawania", "transmit start event")}";
         }
 
+        if (TryParseTransmitStatus(message, out var isTransmitting))
+        {
+            return $"{frame} — {Localize($"stan nadawania: {(isTransmitting ? "aktywne" : "nieaktywne")}",
+                $"transmit state: {(isTransmitting ? "active" : "inactive")}")}";
+        }
+
         if (message.Equals("RX", StringComparison.OrdinalIgnoreCase))
         {
             return $"{frame} — {Localize("zdarzenie powrotu do odbioru", "return to receive event")}";
@@ -1621,6 +1627,14 @@ public partial class MainViewModel : ViewModelBase
         if (TryParseTransmitVfo(message, out var transmitVfo))
         {
             return $"{frame} — {Localize("VFO nadawcze", "transmit VFO")}: {(transmitVfo == 0 ? "MAIN" : "SUB")}";
+        }
+
+        if (message.Length == 3
+            && message.StartsWith("BI", StringComparison.OrdinalIgnoreCase)
+            && message[2] is '0' or '1')
+        {
+            return $"{frame} — {Localize($"stan informacji pasma CAT: {message[2]}",
+                $"CAT band information state: {message[2]}")}";
         }
 
         if (TryParseVfoMode(message, out var modeVfo, out var modeDisplay))
@@ -1915,6 +1929,19 @@ public partial class MainViewModel : ViewModelBase
             if (message.Equals("RX", StringComparison.OrdinalIgnoreCase))
             {
                 SetTransmitState(false);
+                return;
+            }
+
+            if (TryParseTransmitStatus(message, out var isTransmitting))
+            {
+                SetTransmitState(isTransmitting);
+                return;
+            }
+
+            if (message.Length == 3
+                && message.StartsWith("BI", StringComparison.OrdinalIgnoreCase)
+                && message[2] is '0' or '1')
+            {
                 return;
             }
 
@@ -2687,6 +2714,21 @@ public partial class MainViewModel : ViewModelBase
         }
 
         transmitVfo = message[2] - '0';
+        return true;
+    }
+
+    private static bool TryParseTransmitStatus(string message, out bool isTransmitting)
+    {
+        isTransmitting = false;
+        if (message.Length != 3
+            || !message.Equals("TX0", StringComparison.OrdinalIgnoreCase)
+                && !message.Equals("TX1", StringComparison.OrdinalIgnoreCase)
+                && !message.Equals("TX2", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        isTransmitting = message[2] != '0';
         return true;
     }
 

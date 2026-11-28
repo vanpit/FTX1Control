@@ -224,6 +224,20 @@ foreach (var isPeak in new[] { false, true })
 }
 
 {
+    var (connection, port, received) = Create();
+    using (connection)
+    {
+        await port.Inject("TX2;TX0;BI1;");
+        await WaitFor(() => received.Count >= 3);
+        lock (received)
+        {
+            Assert(received.Contains("TX2") && received.Contains("TX0") && received.Contains("BI1"),
+                "Transmit or band-information Auto Information frames were lost.");
+        }
+    }
+}
+
+{
     var (connection, port, _) = Create();
     using (connection)
     {
