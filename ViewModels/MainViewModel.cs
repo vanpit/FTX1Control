@@ -1909,7 +1909,7 @@ public partial class MainViewModel : ViewModelBase
                 return;
             }
 
-            if (message.StartsWith("RL", StringComparison.OrdinalIgnoreCase))
+            if (message.StartsWith("RL0", StringComparison.OrdinalIgnoreCase))
             {
                 if (!CatSerialConnection.TryParseNoiseControlLevel(message, "RL", out var level))
                 {

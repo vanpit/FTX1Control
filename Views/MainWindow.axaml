@@ -234,6 +234,19 @@
             <Setter Property="BorderBrush" Value="#3B4948" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
+        <Style Selector="Border.pinned-frequency-callsign-display">
+            <Setter Property="Background" Value="#303030" />
+            <Setter Property="BorderBrush" Value="#8A8A8A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,2" />
+        </Style>
+        <Style Selector="TextBlock.pinned-frequency-callsign-display">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="#E9EFF6" />
+            <Setter Property="TextAlignment" Value="Center" />
+        </Style>
         <Style Selector="Button.pinned-frequency.selected, Button.detector.rf-power-selected">
             <Setter Property="Background" Value="{StaticResource ActiveButtonBackground}" />
             <Setter Property="Foreground" Value="#FFFFFF" />
@@ -783,6 +796,17 @@
                                 <Path Data="M3,3 L13,13" Stroke="#E53935" StrokeThickness="1.5" IsVisible="{Binding IsMainVolumeMuted}" />
                             </Grid>
                         </Button>
+                        <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MainPinnedFrequencies}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,3,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
+                                    <Border Classes="pinned-frequency-callsign-display"
+                                            IsVisible="{Binding IsCallSignDisplayVisible}">
+                                        <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </Grid>
                 </Grid>
             </Border>
@@ -886,6 +910,17 @@
                                 <Path Data="M3,3 L13,13" Stroke="#E53935" StrokeThickness="1.5" IsVisible="{Binding IsSubVolumeMuted}" />
                             </Grid>
                         </Button>
+                        <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding SubPinnedFrequencies}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,3,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
+                                    <Border Classes="pinned-frequency-callsign-display"
+                                            IsVisible="{Binding IsCallSignDisplayVisible}">
+                                        <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </Grid>
                 </Grid>
             </Border>

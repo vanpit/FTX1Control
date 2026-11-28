@@ -32,6 +32,17 @@ var wasEnglish = LanguageService.IsEnglish;
 try
 {
     LanguageService.SetLanguage(0, savePreference: false);
+    var pinnedFrequency = new PinnedFrequencyViewModel(7_100_000, '2', "USB", () => { }, _ => { }, "K1ABC");
+    Assert(!pinnedFrequency.IsCallSignDisplayVisible, "An unselected pinned callsign should be hidden.");
+    pinnedFrequency.IsSelected = true;
+    Assert(pinnedFrequency.IsCallSignDisplayVisible, "A selected pinned callsign should be shown.");
+    pinnedFrequency.CallSign = " ";
+    Assert(!pinnedFrequency.IsCallSignDisplayVisible, "A blank pinned callsign should be hidden.");
+    pinnedFrequency.CallSign = "K1ABC";
+    Assert(pinnedFrequency.IsCallSignDisplayVisible, "Editing the selected pinned callsign did not show it.");
+    pinnedFrequency.IsSelected = false;
+    Assert(!pinnedFrequency.IsCallSignDisplayVisible, "Deselecting a pinned frequency did not hide its callsign.");
+
     var connectionIndicatorChanges = 0;
     viewModel.PropertyChanged += (_, e) =>
     {
@@ -69,6 +80,15 @@ try
     Assert(((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(195, 206, 202),
         "An informational message did not restore the normal color.");
     LanguageService.SetLanguage(0, savePreference: false);
+    var applyAutoInformation = typeof(MainViewModel).GetMethod("ApplyAutoInformation", PrivateInstance)!;
+    applyAutoInformation.Invoke(viewModel, new object[] { "RL003" });
+    Assert(viewModel.DigitalNoiseReductionLevel == 3, "The RL0 DNR frame was not applied.");
+    viewModel.StatusMessage = "Test status";
+    applyAutoInformation.Invoke(viewModel, new object[] { "RL103" });
+    applyAutoInformation.Invoke(viewModel, new object[] { "RL100" });
+    Assert(viewModel.DigitalNoiseReductionLevel == 3 && viewModel.StatusMessage == "Test status"
+        && ((ISolidColorBrush)viewModel.StatusMessageBrush).Color == Color.FromRgb(195, 206, 202),
+        "An RL1 Auto Information frame was treated as a malformed RL0 DNR frame.");
     typeof(MainViewModel).GetField("_catOperationsCancellation", PrivateInstance)!
         .SetValue(viewModel, new CancellationTokenSource());
     viewModel.IsConnected = true;

@@ -13,6 +13,8 @@ public sealed partial class PinnedFrequencyViewModel : ObservableObject
     [ObservableProperty]
     private string _callSign = string.Empty;
 
+    public bool IsCallSignDisplayVisible => IsSelected && !string.IsNullOrWhiteSpace(CallSign);
+
     public int FrequencyHz { get; }
     public char ModeCode { get; }
     public string ModeDisplay { get; }
@@ -38,6 +40,10 @@ public sealed partial class PinnedFrequencyViewModel : ObservableObject
         SelectCommand = new RelayCommand(select);
         RemoveCommand = new RelayCommand(() => remove(this));
     }
+
+    partial void OnIsSelectedChanged(bool value) => OnPropertyChanged(nameof(IsCallSignDisplayVisible));
+
+    partial void OnCallSignChanged(string value) => OnPropertyChanged(nameof(IsCallSignDisplayVisible));
 
     public void NotifyLanguageChanged() => OnPropertyChanged(nameof(Tooltip));
 }
