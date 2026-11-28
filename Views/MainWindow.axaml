@@ -801,17 +801,6 @@
                                 </Canvas>
                             </Viewbox>
                         </Button>
-                        <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MainPinnedFrequencies}"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,3,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
-                                    <Border Classes="pinned-frequency-callsign-display"
-                                            IsVisible="{Binding IsCallSignDisplayVisible}">
-                                        <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}" />
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
                     </Grid>
                 </Grid>
             </Border>
@@ -917,17 +906,6 @@
                                 </Canvas>
                             </Viewbox>
                         </Button>
-                        <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding SubPinnedFrequencies}"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,3,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
-                                    <Border Classes="pinned-frequency-callsign-display"
-                                            IsVisible="{Binding IsCallSignDisplayVisible}">
-                                        <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}" />
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
                     </Grid>
                 </Grid>
             </Border>
@@ -975,6 +953,30 @@
                     <Border Classes="vfo-top-right" CornerRadius="8" />
                 </Grid>
             </Border>
+            <ItemsControl Grid.Column="0" ItemsSource="{Binding SubPinnedFrequencies}"
+                          HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,18"
+                          IsHitTestVisible="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
+                        <Border Classes="pinned-frequency-callsign-display"
+                                IsVisible="{Binding IsCallSignDisplayVisible}">
+                            <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl Grid.Column="1" ItemsSource="{Binding MainPinnedFrequencies}"
+                          HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,18"
+                          IsHitTestVisible="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PinnedFrequencyViewModel">
+                        <Border Classes="pinned-frequency-callsign-display"
+                                IsVisible="{Binding IsCallSignDisplayVisible}">
+                            <TextBlock Classes="pinned-frequency-callsign-display" Text="{Binding CallSign}" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Grid>
 
     </Grid>
